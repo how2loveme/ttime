@@ -7,91 +7,135 @@
     <p class="text-muted mb-0">
       <i class="bi bi-calendar3"></i> {{ session.vote_date }} &nbsp;
       <span class="badge bg-success">투표 진행중</span>
-      <span class="badge bg-secondary ms-1">{{ session.total_votes }}명 참여</span>
     </p>
   </div>
-  <a href="{% url 'stats' session.id %}" class="btn btn-outline-secondary btn-sm">
-    <i class="bi bi-bar-chart"></i> 현재 결과
-  </a>
 </div>
 
 {% if existing_vote %}
 <div class="alert alert-success">
   <i class="bi bi-check-circle-fill"></i>
-  <strong>{{ already_voted_name }}</strong>님은 이미
-  <strong>{{ existing_vote.menu_item.name }}</strong>을(를) 선택하셨습니다.
-  아래에서 다시 선택하면 변경됩니다.
+  <strong>{{ existing_vote.participant.name }}</strong>님은 이미 <strong>{{ existing_vote.menu_item.name }}</strong>을(를) 선택하셨습니다. 다시 선택하면 변경됩니다.
 </div>
 {% endif %}
 
 <form method="post" action="{% url 'vote_submit' session.id %}" id="voteForm">
   {% csrf_token %}
-  <div class="card p-3 mb-4">
-    <label class="form-label fw-bold">
-      <i class="bi bi-person-fill"></i> 이름 입력
-    </label>
-    <input type="text" name="participant_name" class="form-control"
-           placeholder="이름을 입력해주세요" required
-           value="{{ already_voted_name|default:'' }}" style="max-width:300px;">
-  </div>
-  <input type="hidden" name="menu_item_id" id="selectedMenuId"
-         value="{{ existing_vote.menu_item.id|default:'' }}">
 
+  <!-- 팀원 선택 영역 -->
+  <div class="card p-3 mb-4">
+    <label class="form-label fw-bold"><i class="bi bi-people-fill"></i> 팀원 선택</label>
+    <div class="d-flex flex-wrap gap-2">
+      {% for member in team_members %}
+      <button type="button" class="btn btn-outline-secondary rounded-pill px-3 py-1 member-btn {% if existing_vote.participant.id == member.id %}btn-compose border-0{% endif %}"
+              onclick="selectMember({{ member.id }}, this)">
+        {{ member.name }}
+      </button>
+      {% endfor %}
+    </div>
+    <input type="hidden" name="participant_id" id="selectedMemberId" value="{{ existing_vote.participant.id|default:'' }}">
+  </div>
+  <input type="hidden" name="menu_item_id" id="selectedMenuId" value="{{ existing_vote.menu_item.id|default:'' }}">
+
+  <!-- 메뉴 선택 영역 -->
   {% for category in categories %}
   {% if category.items.all %}
-  <h5 class="fw-bold mt-4 mb-2">
-    <span class="badge badge-cat">{{ category.name }}</span>
-  </h5>
+  <h5 class="fw-bold mt-4 mb-2"><span class="badge badge-cat">{{ category.name }}</span></h5>
   <div class="row g-2 mb-3">
     {% for item in category.items.all %}
-    {% if item.is_available %}
     <div class="col-6 col-md-4 col-lg-3">
-      <div class="card menu-card p-3 h-100 text-center
-                  {% if existing_vote.menu_item.id == item.id %}selected{% endif %}"
+      <!-- position-relative 추가 -->
+      <div class="card menu-card p-3 h-100 text-center position-relative {% if existing_vote.menu_item.id == item.id %}selected{% endif %}"
            onclick="selectMenu({{ item.id }}, this)">
+
+        <!-- 돋보기 아이콘 (event.stopPropagation()으로 카드 클릭 이벤트 방지) -->
         {% if item.image_url %}
-        <img src="{{ item.image_url }}" alt="{{ item.name }}"
-             class="mx-auto mb-2 rounded" style="height:60px; object-fit:contain;">
+        <button type="button" class="btn btn-sm btn-light position-absolute top-0 end-0 m-1 z-1 rounded-circle shadow-sm"
+                onclick="openImageModal('{{ item.image_url }}', '{{ item.name }}'); event.stopPropagation();">
+          <i class="bi bi-zoom-in text-secondary"></i>
+        </button>
+        {% endif %}
+
+        {% if item.image_url %}
+        <img src="{{ item.image_url }}" class="mx-auto mb-2 rounded" style="height:60px; object-fit:contain;">
         {% else %}
-        <div class="mx-auto mb-2 d-flex align-items-center justify-content-center
-                    rounded bg-light" style="width:60px; height:60px; font-size:1.5rem;">
-          ☕
-        </div>
+        <div class="mx-auto mb-2 d-flex align-items-center justify-content-center rounded bg-light" style="width:60px; height:60px; font-size:1.5rem;">☕</div>
         {% endif %}
         <div class="fw-semibold small">{{ item.name }}</div>
       </div>
     </div>
-    {% endif %}
     {% endfor %}
   </div>
   {% endif %}
   {% endfor %}
 
+  <!-- 하단 고정 제출 바 -->
   <div class="sticky-bottom bg-white border-top py-3 mt-4" id="submitBar" style="display:none;">
     <div class="container d-flex align-items-center gap-3">
-      <span id="selectedName" class="fw-semibold text-success"></span>
+      <span id="selectedStatusText" class="fw-semibold text-success"></span>
       <button type="submit" class="btn btn-compose btn-lg ms-auto">
         <i class="bi bi-check-lg"></i> 선택 완료!
       </button>
     </div>
   </div>
 </form>
+
+<!-- 이미지 확대 모달 -->
+<div class="modal fade" id="imageModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header border-0 pb-0">
+        <h5 class="modal-title fw-bold" id="modalMenuTitle"></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body text-center pb-4">
+        <img id="modalImage" src="" class="img-fluid rounded" alt="음료 이미지">
+      </div>
+    </div>
+  </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-function selectMenu(id, el) {
-  document.querySelectorAll('.menu-card').forEach(c => c.classList.remove('selected'));
-  el.classList.add('selected');
-  document.getElementById('selectedMenuId').value = id;
-  const name = el.querySelector('.fw-semibold').textContent;
-  document.getElementById('selectedName').textContent = name + ' 선택됨 ✓';
-  document.getElementById('submitBar').style.display = 'block';
-}
-{% if existing_vote %}
-document.getElementById('submitBar').style.display = 'block';
-document.getElementById('selectedName').textContent =
-  '{{ existing_vote.menu_item.name }} 선택됨 ✓';
-{% endif %}
+  let currentMember = {% if existing_vote %}'{{ existing_vote.participant.name }}'{% else %}''{% endif %};
+  let currentMenu = {% if existing_vote %}'{{ existing_vote.menu_item.name }}'{% else %}''{% endif %};
+
+  function updateSubmitBar() {
+    if (document.getElementById('selectedMemberId').value && document.getElementById('selectedMenuId').value) {
+      document.getElementById('submitBar').style.display = 'block';
+      document.getElementById('selectedStatusText').innerHTML = `👤 <b>${currentMember}</b> <i class="bi bi-arrow-right"></i> ☕ <b>${currentMenu}</b>`;
+    }
+  }
+
+  function selectMember(id, el) {
+    document.querySelectorAll('.member-btn').forEach(btn => {
+      btn.classList.remove('btn-compose', 'border-0');
+      btn.classList.add('btn-outline-secondary');
+    });
+    el.classList.remove('btn-outline-secondary');
+    el.classList.add('btn-compose', 'border-0');
+    document.getElementById('selectedMemberId').value = id;
+    currentMember = el.innerText.trim();
+    updateSubmitBar();
+  }
+
+  function selectMenu(id, el) {
+    document.querySelectorAll('.menu-card').forEach(c => c.classList.remove('selected'));
+    el.classList.add('selected');
+    document.getElementById('selectedMenuId').value = id;
+    currentMenu = el.querySelector('.fw-semibold').textContent.trim();
+    updateSubmitBar();
+  }
+
+  function openImageModal(imgUrl, menuName) {
+    document.getElementById('modalImage').src = imgUrl;
+    document.getElementById('modalMenuTitle').innerText = menuName;
+    var myModal = new bootstrap.Modal(document.getElementById('imageModal'));
+    myModal.show();
+  }
+
+  {% if existing_vote %}
+  updateSubmitBar();
+  {% endif %}
 </script>
 {% endblock %}

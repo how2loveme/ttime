@@ -1,6 +1,5 @@
 from django.db import models
 
-
 class Category(models.Model):
     name = models.CharField(max_length=100, verbose_name='카테고리명')
     order = models.IntegerField(default=0, verbose_name='정렬순서')
@@ -12,7 +11,6 @@ class Category(models.Model):
 
     def __str__(self):
         return self.name
-
 
 class MenuItem(models.Model):
     category = models.ForeignKey(
@@ -34,10 +32,18 @@ class MenuItem(models.Model):
     def __str__(self):
         return f"[{self.category.name}] {self.name}"
 
-    @property
-    def price_display(self):
-        return f"{self.price:,}원"
+# --- 새로 추가된 팀원 모델 ---
+class TeamMember(models.Model):
+    name = models.CharField(max_length=50, verbose_name='이름')
+    is_active = models.BooleanField(default=True, verbose_name='재직/참여중')
 
+    class Meta:
+        ordering = ['name']
+        verbose_name = '팀원'
+        verbose_name_plural = '팀원 목록'
+
+    def __str__(self):
+        return self.name
 
 class VoteSession(models.Model):
     title = models.CharField(max_length=200, verbose_name='투표 제목')
@@ -57,13 +63,16 @@ class VoteSession(models.Model):
     def total_votes(self):
         return self.votes.count()
 
-
 class Vote(models.Model):
     session = models.ForeignKey(
         VoteSession, on_delete=models.CASCADE,
         related_name='votes', verbose_name='투표 세션'
     )
-    participant_name = models.CharField(max_length=100, verbose_name='참여자 이름')
+    # 기존 participant_name 대신 TeamMember 외래키 사용
+    participant = models.ForeignKey(
+        TeamMember, on_delete=models.CASCADE,
+        related_name='votes', verbose_name='참여자'
+    )
     menu_item = models.ForeignKey(
         MenuItem, on_delete=models.CASCADE,
         related_name='votes', verbose_name='선택 메뉴'
@@ -71,9 +80,9 @@ class Vote(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        unique_together = ['session', 'participant_name']
+        unique_together = ['session', 'participant']
         verbose_name = '투표'
         verbose_name_plural = '투표 목록'
 
     def __str__(self):
-        return f"{self.participant_name} → {self.menu_item.name} ({self.session.title})"
+        return f"{self.participant.name} → {self.menu_item.name}"
