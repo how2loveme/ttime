@@ -1,0 +1,67 @@
+{% extends "drinks/base.html" %}
+{% block title %}{{ session.title }} - 투표 결과{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h2 class="fw-bold mb-0">
+      <i class="bi bi-bar-chart-fill text-warning"></i> {{ session.title }}
+    </h2>
+    <p class="text-muted mb-0">
+      <i class="bi bi-calendar3"></i> {{ session.vote_date }} &nbsp;
+      총 <strong>{{ total }}명</strong> 참여
+    </p>
+  </div>
+  {% if session.is_active %}
+  <a href="{% url 'vote' session.id %}" class="btn btn-compose">
+    <i class="bi bi-hand-index-thumb"></i> 투표하기
+  </a>
+  {% endif %}
+</div>
+
+{% if results %}
+<div class="card p-4 mb-4">
+  <h5 class="fw-bold mb-3">🏆 음료별 투표 현황</h5>
+  {% for item in results %}
+  <div class="mb-3">
+    <div class="d-flex justify-content-between mb-1">
+      <span>
+        {% if forloop.first %}<span class="me-1">🥇</span>{% endif %}
+        <strong>{{ item.name }}</strong>
+        <span class="text-muted small ms-1">({{ item.category }})</span>
+      </span>
+      <span class="fw-bold">{{ item.count }}표 ({{ item.percent }}%)</span>
+    </div>
+    <div class="progress" style="height:20px;">
+      <div class="progress-bar" role="progressbar"
+           style="width:{{ item.percent }}%;">
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="card p-4">
+  <h5 class="fw-bold mb-3">👥 참여자 목록</h5>
+  <div class="row g-2">
+    {% for vote in all_votes %}
+    <div class="col-6 col-md-4 col-lg-3">
+      <div class="border rounded p-2 text-center small">
+        <div class="fw-semibold">{{ vote.participant_name }}</div>
+        <div class="text-muted">{{ vote.menu_item.name }}</div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% else %}
+<div class="text-center py-5">
+  <i class="bi bi-inbox" style="font-size:3rem; color:#ccc;"></i>
+  <p class="text-muted mt-2">아직 투표한 사람이 없습니다.</p>
+  {% if session.is_active %}
+  <a href="{% url 'vote' session.id %}" class="btn btn-compose">
+    첫 번째로 투표하기!
+  </a>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}

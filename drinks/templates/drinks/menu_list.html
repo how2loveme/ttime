@@ -1,0 +1,29 @@
+{% extends "drinks/base.html" %}
+{% block title %}전체 메뉴{% endblock %}
+{% block content %}
+<h2 class="fw-bold mb-1">전체 메뉴</h2>
+<p class="text-muted mb-4">컴포즈커피 신도림점</p>
+{% for category in categories %}
+<h5 class="fw-bold mt-4">
+  <span class="badge badge-cat">{{ category.name }}</span>
+</h5>
+<div class="row g-2 mb-3">
+  {% for item in category.items.all %}
+  {% if item.is_available %}
+  <div class="col-6 col-md-4 col-lg-3">
+    <div class="card p-3 h-100 text-center">
+      {% if item.image_url %}
+      <img src="{{ item.image_url }}" alt="{{ item.name }}"
+           class="mx-auto mb-2 rounded" style="height:55px; object-fit:contain;">
+      {% else %}
+      <div class="mb-2" style="font-size:1.8rem;">☕</div>
+      {% endif %}
+      <div class="fw-semibold small">{{ item.name }}</div>
+      <div class="text-muted small">{{ item.price_display }}</div>
+    </div>
+  </div>
+  {% endif %}
+  {% endfor %}
+</div>
+{% endfor %}
+{% endblock %}

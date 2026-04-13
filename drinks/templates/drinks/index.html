@@ -1,0 +1,68 @@
+{% extends "drinks/base.html" %}
+{% block title %}티타임 투표 홈{% endblock %}
+{% block content %}
+<div class="text-center mb-4">
+  <h1 class="fw-bold">☕ 이번 주 음료 투표</h1>
+  <p class="text-muted">컴포즈커피 신도림점 · 팀 티타임 음료를 선택해주세요</p>
+</div>
+
+{% if active_sessions %}
+<h5 class="fw-bold mb-3"><i class="bi bi-megaphone-fill text-warning"></i> 진행 중인 투표</h5>
+<div class="row g-3 mb-5">
+  {% for session in active_sessions %}
+  <div class="col-md-6">
+    <div class="card p-3">
+      <div class="d-flex justify-content-between align-items-start">
+        <div>
+          <h5 class="fw-bold mb-1">{{ session.title }}</h5>
+          <p class="text-muted mb-2">
+            <i class="bi bi-calendar3"></i> {{ session.vote_date }}
+          </p>
+          <span class="badge bg-success">투표 진행중</span>
+          <span class="badge bg-secondary ms-1">{{ session.total_votes }}명 참여</span>
+        </div>
+        <div class="text-end">
+          <a href="{% url 'vote' session.id %}" class="btn btn-compose me-1">
+            <i class="bi bi-hand-index-thumb"></i> 투표하기
+          </a>
+          <a href="{% url 'stats' session.id %}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-bar-chart"></i> 결과
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="text-center py-5">
+  <i class="bi bi-cup-hot" style="font-size:3rem; color:#ccc;"></i>
+  <p class="text-muted mt-2">현재 진행 중인 투표가 없습니다.</p>
+  <p class="text-muted small">관리자에서 새 투표 세션을 만들어주세요.</p>
+  <a href="/admin/drinks/votesession/add/" class="btn btn-compose">
+    <i class="bi bi-plus-circle"></i> 투표 만들기
+  </a>
+</div>
+{% endif %}
+
+{% if past_sessions %}
+<h5 class="fw-bold mb-3 text-muted"><i class="bi bi-clock-history"></i> 지난 투표</h5>
+<div class="row g-2">
+  {% for session in past_sessions %}
+  <div class="col-md-6">
+    <div class="card p-3 opacity-75">
+      <div class="d-flex justify-content-between align-items-center">
+        <div>
+          <span class="fw-semibold">{{ session.title }}</span>
+          <span class="text-muted ms-2 small">{{ session.vote_date }}</span>
+        </div>
+        <a href="{% url 'stats' session.id %}" class="btn btn-outline-secondary btn-sm">
+          <i class="bi bi-bar-chart"></i> 결과보기
+        </a>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

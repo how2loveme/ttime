@@ -1,0 +1,98 @@
+{% extends "drinks/base.html" %}
+{% block title %}{{ session.title }} - 투표{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <h2 class="fw-bold mb-0">{{ session.title }}</h2>
+    <p class="text-muted mb-0">
+      <i class="bi bi-calendar3"></i> {{ session.vote_date }} &nbsp;
+      <span class="badge bg-success">투표 진행중</span>
+      <span class="badge bg-secondary ms-1">{{ session.total_votes }}명 참여</span>
+    </p>
+  </div>
+  <a href="{% url 'stats' session.id %}" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-bar-chart"></i> 현재 결과
+  </a>
+</div>
+
+{% if existing_vote %}
+<div class="alert alert-success">
+  <i class="bi bi-check-circle-fill"></i>
+  <strong>{{ already_voted_name }}</strong>님은 이미
+  <strong>{{ existing_vote.menu_item.name }}</strong>을(를) 선택하셨습니다.
+  아래에서 다시 선택하면 변경됩니다.
+</div>
+{% endif %}
+
+<form method="post" action="{% url 'vote_submit' session.id %}" id="voteForm">
+  {% csrf_token %}
+  <div class="card p-3 mb-4">
+    <label class="form-label fw-bold">
+      <i class="bi bi-person-fill"></i> 이름 입력
+    </label>
+    <input type="text" name="participant_name" class="form-control"
+           placeholder="이름을 입력해주세요" required
+           value="{{ already_voted_name|default:'' }}" style="max-width:300px;">
+  </div>
+  <input type="hidden" name="menu_item_id" id="selectedMenuId"
+         value="{{ existing_vote.menu_item.id|default:'' }}">
+
+  {% for category in categories %}
+  {% if category.items.all %}
+  <h5 class="fw-bold mt-4 mb-2">
+    <span class="badge badge-cat">{{ category.name }}</span>
+  </h5>
+  <div class="row g-2 mb-3">
+    {% for item in category.items.all %}
+    {% if item.is_available %}
+    <div class="col-6 col-md-4 col-lg-3">
+      <div class="card menu-card p-3 h-100 text-center
+                  {% if existing_vote.menu_item.id == item.id %}selected{% endif %}"
+           onclick="selectMenu({{ item.id }}, this)">
+        {% if item.image_url %}
+        <img src="{{ item.image_url }}" alt="{{ item.name }}"
+             class="mx-auto mb-2 rounded" style="height:60px; object-fit:contain;">
+        {% else %}
+        <div class="mx-auto mb-2 d-flex align-items-center justify-content-center
+                    rounded bg-light" style="width:60px; height:60px; font-size:1.5rem;">
+          ☕
+        </div>
+        {% endif %}
+        <div class="fw-semibold small">{{ item.name }}</div>
+        <div class="text-muted small mt-1">{{ item.price_display }}</div>
+      </div>
+    </div>
+    {% endif %}
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% endfor %}
+
+  <div class="sticky-bottom bg-white border-top py-3 mt-4" id="submitBar" style="display:none;">
+    <div class="container d-flex align-items-center gap-3">
+      <span id="selectedName" class="fw-semibold text-success"></span>
+      <button type="submit" class="btn btn-compose btn-lg ms-auto">
+        <i class="bi bi-check-lg"></i> 선택 완료!
+      </button>
+    </div>
+  </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function selectMenu(id, el) {
+  document.querySelectorAll('.menu-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  document.getElementById('selectedMenuId').value = id;
+  const name = el.querySelector('.fw-semibold').textContent;
+  document.getElementById('selectedName').textContent = name + ' 선택됨 ✓';
+  document.getElementById('submitBar').style.display = 'block';
+}
+{% if existing_vote %}
+document.getElementById('submitBar').style.display = 'block';
+document.getElementById('selectedName').textContent =
+  '{{ existing_vote.menu_item.name }} 선택됨 ✓';
+{% endif %}
+</script>
+{% endblock %}
