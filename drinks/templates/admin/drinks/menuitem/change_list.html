@@ -1,0 +1,10 @@
+{% extends "admin/change_list.html" %}
+
+{% block object-tools-items %}
+<li>
+    <a href="update-menu/" class="addlink" style="background-color: #FFD600; color: #1A1A1A; font-weight: bold;">
+        🔄 컴포즈 메뉴 최신화 (크롤링)
+    </a>
+</li>
+{{ block.super }}
+{% endblock %}
