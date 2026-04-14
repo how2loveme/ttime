@@ -13,24 +13,58 @@ spec:
         app: {{ .Release.Name }}-web
     spec:
       initContainers:
-      - name: wait-for-db
-        image: busybox:1.36
-        command: ['sh', '-c', 'until nc -z compose-vote-db 5432; do echo waiting for db; sleep 2; done;']
+        - name: wait-for-db
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              until nc -z compose-vote-db 5432; do
+                echo "DB 대기중..."
+                sleep 2
+              done
+              echo "DB 연결 확인 완료!"
+
       containers:
-      - name: django-web
-        image: {{ .Values.web.image }}
-        imagePullPolicy: {{ .Values.web.imagePullPolicy }}
-        env:
-        - name: POSTGRES_HOST
-          value: compose-vote-db
-        - name: POSTGRES_USER
-          value: {{ .Values.postgres.user }}
-        - name: POSTGRES_PASSWORD
-          value: {{ .Values.postgres.password }}
-        - name: POSTGRES_DB
-          value: {{ .Values.postgres.db }}
-        ports:
-        - containerPort: {{ .Values.web.port }}
+        - name: django-web
+          image: {{ .Values.web.image }}
+          imagePullPolicy: {{ .Values.web.imagePullPolicy }}
+
+          command: ["sh", "-c"]
+          args:
+            - |
+              echo "===== 1단계: 기존 마이그레이션 파일 초기화 ====="
+              rm -f drinks/migrations/00*.py
+
+              echo "===== 3단계: DB 테이블 생성 ====="
+              python manage.py migrate
+
+              echo "===== 4단계: 메뉴 데이터 크롤링 ====="
+              python manage.py crawl_menu --clear
+
+              echo "===== 5단계: 관리자 계정 자동 생성 ====="
+              DJANGO_SUPERUSER_USERNAME={{ .Values.superuser.username }}
+              DJANGO_SUPERUSER_EMAIL={{ .Values.superuser.email }}
+              DJANGO_SUPERUSER_PASSWORD={{ .Values.superuser.password }}
+              python manage.py createsuperuser --noinput || true
+
+              echo "===== 6단계: Django 웹 서버 기동 ====="
+              python manage.py runserver 0.0.0.0:{{ .Values.web.port }}
+
+          env:
+            - name: POSTGRES_HOST
+              value: compose-vote-db
+            - name: POSTGRES_PORT
+              value: "5432"
+            - name: POSTGRES_DB
+              value: {{ .Values.postgres.db }}
+            - name: POSTGRES_USER
+              value: {{ .Values.postgres.user }}
+            - name: POSTGRES_PASSWORD
+              value: {{ .Values.postgres.password }}
+
+          ports:
+            - containerPort: {{ .Values.web.port }}
 ---
 apiVersion: v1
 kind: Service
@@ -41,5 +75,5 @@ spec:
   selector:
     app: {{ .Release.Name }}-web
   ports:
-  - port: 80
-    targetPort: {{ .Values.web.port }}
+    - port: 80
+      targetPort: {{ .Values.web.port }}
