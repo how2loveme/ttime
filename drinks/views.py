@@ -70,20 +70,24 @@ def vote_submit(request, session_id):
 
 def stats(request, session_id):
     session = get_object_or_404(VoteSession, pk=session_id)
+
     vote_counts = Vote.objects.filter(session=session).values('menu_item__name', 'menu_item__category__name').annotate(count=Count('id')).order_by('-count')
     all_votes = Vote.objects.filter(session=session).select_related('menu_item', 'participant').order_by('participant__name')
 
     total = session.total_votes
     results = [{'name': item['menu_item__name'], 'category': item['menu_item__category__name'], 'count': item['count'], 'percent': round(item['count'] / total * 100) if total else 0} for item in vote_counts]
 
-    # 댓글 시스템을 위한 데이터
     comments = Comment.objects.filter(session=session).select_related('author')
     team_members = TeamMember.objects.filter(is_active=True)
-    voted_member_id = request.session.get(f'voted_{session_id}') # 방금 투표한 사람 (자동 선택용)
+    voted_member_id = request.session.get(f'voted_{session_id}')
+
+    voted_member_ids = all_votes.values_list('participant_id', flat=True)
+    unvoted_members = TeamMember.objects.filter(is_active=True).exclude(id__in=voted_member_ids).order_by('name')
 
     return render(request, 'drinks/stats.html', {
         'session': session, 'results': results, 'all_votes': all_votes, 'total': total,
-        'comments': comments, 'team_members': team_members, 'voted_member_id': voted_member_id
+        'comments': comments, 'team_members': team_members, 'voted_member_id': voted_member_id,
+        'unvoted_members': unvoted_members, # 템플릿으로 전달
     })
 
 # 새로 추가된 댓글 처리 View

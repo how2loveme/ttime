@@ -52,6 +52,22 @@
     </div>
     {% endfor %}
   </div>
+  {% if unvoted_members %}
+  <hr class="my-4 text-muted opacity-25">
+  <h5 class="fw-bold mb-3 text-muted"><i class="bi bi-hourglass-split"></i> 미투표자 <span class="text-danger">({{ unvoted_members|length }}명)</span></h5>
+  <div class="d-flex flex-wrap gap-2">
+    {% for member in unvoted_members %}
+    <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary px-3 py-2 fw-normal rounded-pill">
+          {{ member.name }}
+        </span>
+    {% endfor %}
+  </div>
+  {% else %}
+  <hr class="my-4 text-muted opacity-25">
+  <div class="alert alert-success mb-0 py-2 text-center">
+    <i class="bi bi-emoji-sunglasses"></i> 팀원 모두가 투표를 완료했습니다!
+  </div>
+  {% endif %}
 </div>
 {% else %}
 <div class="text-center py-5">
