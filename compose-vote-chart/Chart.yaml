@@ -1,0 +1,5 @@
+apiVersion: v2
+name: compose-vote
+description: 컴포즈커피 티타임 투표 시스템 (Django + PostgreSQL)
+version: 0.1.0
+appVersion: "1.0"

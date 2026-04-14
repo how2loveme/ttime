@@ -45,10 +45,20 @@ TEMPLATES = [{
 
 WSGI_APPLICATION = 'compose_vote.wsgi.application'
 
+DB_HOST = os.environ.get('POSTGRES_HOST', 'compose-vote-db')
+DB_PORT = os.environ.get('POSTGRES_PORT', '5432')
+DB_NAME = os.environ.get('POSTGRES_DB', 'compose_vote')
+DB_USER = os.environ.get('POSTGRES_USER', 'vote_user')
+DB_PASSWORD = os.environ.get('POSTGRES_PASSWORD', 'vote_password')
+
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db' / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': DB_NAME,
+        'USER': DB_USER,
+        'PASSWORD': DB_PASSWORD,
+        'HOST': DB_HOST,
+        'PORT': DB_PORT,
     }
 }
 

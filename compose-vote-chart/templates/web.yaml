@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-web
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-web
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-web
+    spec:
+      initContainers:
+      - name: wait-for-db
+        image: busybox:1.36
+        command: ['sh', '-c', 'until nc -z compose-vote-db 5432; do echo waiting for db; sleep 2; done;']
+      containers:
+      - name: django-web
+        image: {{ .Values.web.image }}
+        imagePullPolicy: {{ .Values.web.imagePullPolicy }}
+        env:
+        - name: POSTGRES_HOST
+          value: compose-vote-db
+        - name: POSTGRES_USER
+          value: {{ .Values.postgres.user }}
+        - name: POSTGRES_PASSWORD
+          value: {{ .Values.postgres.password }}
+        - name: POSTGRES_DB
+          value: {{ .Values.postgres.db }}
+        ports:
+        - containerPort: {{ .Values.web.port }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-web-svc
+spec:
+  type: ClusterIP
+  selector:
+    app: {{ .Release.Name }}-web
+  ports:
+  - port: 80
+    targetPort: {{ .Values.web.port }}
