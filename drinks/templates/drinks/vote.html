@@ -36,6 +36,33 @@
   </div>
   <input type="hidden" name="menu_item_id" id="selectedMenuId" value="{{ existing_vote.menu_item.id|default:'' }}">
 
+  <!-- 인기 메뉴 영역 -->
+  {% if popular_items %}
+  <h5 class="fw-bold mt-4 mb-2"><span class="badge bg-danger">🔥 팀원 인기 메뉴</span></h5>
+  <div class="row g-2 mb-3">
+    {% for item in popular_items %}
+    <div class="col-6 col-md-4 col-lg-3">
+      <div class="card menu-card p-3 h-100 text-center position-relative {% if existing_vote.menu_item.id == item.id %}selected{% endif %}"
+           onclick="selectMenu({{ item.id }}, this)">
+
+        {% if item.image_url %}
+        <button type="button" class="btn btn-sm btn-light position-absolute top-0 end-0 m-1 z-1 rounded-circle shadow-sm"
+                onclick="openImageModal('{{ item.image_url }}', '{{ item.name }}'); event.stopPropagation();">
+          <i class="bi bi-zoom-in text-secondary"></i>
+        </button>
+        <img src="{{ item.image_url }}" class="mx-auto mb-2 rounded" style="height:60px; object-fit:contain;">
+        {% else %}
+        <div class="mx-auto mb-2 d-flex align-items-center justify-content-center rounded bg-light" style="width:60px; height:60px; font-size:1.5rem;">☕</div>
+        {% endif %}
+        <div class="fw-semibold small">{{ item.name }}</div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  <hr class="my-4 text-muted">
+  {% endif %}
+  <!-- 기존 카테고리 반복문 시작부분 -->
+
   <!-- 메뉴 선택 영역 -->
   {% for category in categories %}
   {% if category.items.all %}

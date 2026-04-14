@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.utils.html import format_html
-from .models import Category, MenuItem, VoteSession, Vote, TeamMember
+from .models import Category, MenuItem, VoteSession, Vote, TeamMember, Comment
 
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):
@@ -9,16 +9,23 @@ class CategoryAdmin(admin.ModelAdmin):
 
 @admin.register(MenuItem)
 class MenuItemAdmin(admin.ModelAdmin):
-    list_display = ['name', 'category', 'is_available', 'thumbnail']
-    list_filter = ['category', 'is_available']
+    # is_popular 추가
+    list_display = ['name', 'category', 'is_available', 'is_popular', 'thumbnail']
+    list_filter = ['category', 'is_available', 'is_popular']
     search_fields = ['name']
-    list_editable = ['is_available']
+    # 관리자 리스트에서 바로 인기메뉴 체크박스 끄고 켤 수 있게 설정
+    list_editable = ['is_available', 'is_popular']
 
     def thumbnail(self, obj):
         if obj.image_url:
             return format_html('<img src="{}" height="40"/>', obj.image_url)
         return '-'
     thumbnail.short_description = '이미지'
+
+@admin.register(Comment)
+class CommentAdmin(admin.ModelAdmin):
+    list_display = ['author', 'content', 'session', 'created_at']
+    list_filter = ['session']
 
 @admin.register(TeamMember)
 class TeamMemberAdmin(admin.ModelAdmin):

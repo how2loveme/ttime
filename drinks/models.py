@@ -13,15 +13,14 @@ class Category(models.Model):
         return self.name
 
 class MenuItem(models.Model):
-    category = models.ForeignKey(
-        Category, on_delete=models.CASCADE,
-        related_name='items', verbose_name='카테고리'
-    )
+    category = models.ForeignKey(Category, on_delete=models.CASCADE, related_name='items', verbose_name='카테고리')
     name = models.CharField(max_length=200, verbose_name='메뉴명')
     price = models.IntegerField(default=0, verbose_name='가격(원)')
     image_url = models.URLField(blank=True, verbose_name='이미지URL')
     description = models.TextField(blank=True, verbose_name='설명')
     is_available = models.BooleanField(default=True, verbose_name='판매중')
+    # 새로 추가된 인기메뉴 필드
+    is_popular = models.BooleanField(default=False, verbose_name='인기메뉴')
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -86,3 +85,14 @@ class Vote(models.Model):
 
     def __str__(self):
         return f"{self.participant.name} → {self.menu_item.name}"
+
+class Comment(models.Model):
+    session = models.ForeignKey(VoteSession, on_delete=models.CASCADE, related_name='comments', verbose_name='투표 세션')
+    author = models.ForeignKey('TeamMember', on_delete=models.CASCADE, verbose_name='작성자')
+    content = models.CharField(max_length=500, verbose_name='내용(옵션/댓글)')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at']
+        verbose_name = '댓글'
+        verbose_name_plural = '댓글 목록'

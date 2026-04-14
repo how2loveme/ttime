@@ -64,4 +64,43 @@
   {% endif %}
 </div>
 {% endif %}
+<!-- ... 기존 참여자 목록 끝나는 부분 ... -->
+
+<!-- 댓글 및 요청사항 영역 -->
+<div class="card p-4 mt-4 mb-5 shadow-sm border-0">
+  <h5 class="fw-bold mb-4"><i class="bi bi-chat-square-text-fill text-primary"></i> 옵션 변경 및 댓글</h5>
+
+  <div class="mb-4">
+    {% for comment in comments %}
+    <div class="mb-2 pb-2 border-bottom d-flex align-items-start">
+      <div class="bg-light rounded-circle p-2 me-2 d-flex justify-content-center align-items-center" style="width:35px; height:35px;">
+        <i class="bi bi-person text-secondary"></i>
+      </div>
+      <div>
+        <span class="fw-bold">{{ comment.author.name }}</span>
+        <span class="text-muted small ms-1">{{ comment.created_at|date:"m/d H:i" }}</span>
+        <p class="mb-0 mt-1 text-dark">{{ comment.content }}</p>
+      </div>
+    </div>
+    {% empty %}
+    <div class="text-center text-muted py-3 small">
+      아직 작성된 요청사항이 없습니다.<br>샷 추가나 연하게 등 필요한 옵션을 남겨주세요!
+    </div>
+    {% endfor %}
+  </div>
+
+  <form method="post" action="{% url 'add_comment' session.id %}" class="d-flex gap-2">
+    {% csrf_token %}
+    <select name="author_id" class="form-select border-primary" style="width: 130px; font-weight: 500;" required>
+      <option value="">- 선택 -</option>
+      {% for member in team_members %}
+      <option value="{{ member.id }}" {% if voted_member_id == member.id %}selected{% endif %}>
+        {{ member.name }}
+      </option>
+      {% endfor %}
+    </select>
+    <input type="text" name="content" class="form-control" placeholder="요청사항이나 하고 싶은 말을 입력하세요" required>
+    <button type="submit" class="btn btn-primary text-nowrap px-3 fw-bold">등록</button>
+  </form>
+</div>
 {% endblock %}
