@@ -25,6 +25,17 @@ spec:
       containers:
         - name: postgres
           image: {{ .Values.postgres.image }}
+          command: [ "sh", "-c" ]
+          args:
+            - |
+              echo "===== 1단계: 기존 마이그레이션 파일 초기화 ====="
+              rm -f drinks/migrations/00*.py
+
+              echo "===== 2단계: 마이그레이션 설계도 생성 ====="
+              python manage.py makemigrations drinks
+
+              echo "===== 3단계: DB 테이블 생성 ====="
+              python manage.py migrate
           env:
             - name: POSTGRES_USER
               value: {{ .Values.postgres.user }}
