@@ -12,6 +12,8 @@ spec:
       labels:
         app: {{ .Release.Name }}-web
     spec:
+      imagePullSecrets:
+        - name: harbor-regcred
       initContainers:
         - name: wait-for-db
           image: busybox:1.36
