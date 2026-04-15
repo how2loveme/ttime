@@ -1,6 +1,6 @@
 web:
-  image: compose-vote:v3
-  imagePullPolicy: IfNotPresent # 로컬 테스트를 위해 변경
+  image: harbor.softworksapp.cloud/ttime/repository:v1
+  imagePullPolicy: Always # 로컬 테스트를 위해 변경
   port: 8000
 
 postgres:
@@ -17,6 +17,6 @@ superuser:
   password: softworks
 
 ingress:
-  enabled: false # 로컬에선 false, 실서버에선 true로 덮어쓰기
+  enabled: true # 로컬에선 false, 실서버에선 true로 덮어쓰기
   className: "nginx"
   host: "ttime.softworksapp.cloud"
