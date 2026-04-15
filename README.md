@@ -10,6 +10,7 @@ python3 -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
 
 # 2. DB 초기화 + 메뉴 크롤링
+python manage.py makemigrations
 python manage.py migrate
 python manage.py crawl_menu --fallback   # 크롤링 실패 시 기본 데이터 사용
 
