@@ -1,5 +1,5 @@
 web:
-  image: harbor.softworksapp.cloud/ttime/repository:v1
+  image: harbor.softworksapp.cloud/ttime/repository:v2
   imagePullPolicy: Always # 로컬 테스트를 위해 변경
   port: 8000
 
@@ -20,3 +20,8 @@ ingress:
   enabled: true # 로컬에선 false, 실서버에선 true로 덮어쓰기
   className: "nginx"
   host: "ttime.softworksapp.cloud"
+  tls:
+    enabled: true
+    secretName: "ttime-cert"   # 인증서가 저장된 K8s Secret 이름
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
