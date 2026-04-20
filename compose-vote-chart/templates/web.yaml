@@ -35,23 +35,23 @@ spec:
           command: ["sh", "-c"]
           args:
             - |
-              echo "===== 1단계: 기존 마이그레이션 파일 초기화 ====="
-              rm -f drinks/migrations/00*.py
+              #echo "===== 1단계: 기존 마이그레이션 파일 초기화 ====="
+              #rm -f drinks/migrations/00*.py
 
-              echo "===== 2단계: DB 설계도 생성 ====="
-              python manage.py makemigrations
+              #echo "===== 2단계: DB 설계도 생성 ====="
+              #python manage.py makemigrations
 
-              echo "===== 3단계: DB 테이블 생성 ====="
-              python manage.py migrate
+              #echo "===== 3단계: DB 테이블 생성 ====="
+              #python manage.py migrate
 
-              echo "===== 4단계: 메뉴 데이터 크롤링 ====="
-              python manage.py crawl_menu --clear
+              #echo "===== 4단계: 메뉴 데이터 크롤링 ====="
+              #python manage.py crawl_menu
 
-              echo "===== 5단계: 관리자 계정 자동 생성 ====="
-              DJANGO_SUPERUSER_PASSWORD={{ .Values.superuser.password }} \
-              python manage.py createsuperuser --noinput \
-              --username {{ .Values.superuser.username }} \
-              --email {{ .Values.superuser.email }} || true
+              #echo "===== 5단계: 관리자 계정 자동 생성 ====="
+              #DJANGO_SUPERUSER_PASSWORD={{ .Values.superuser.password }} \
+              #python manage.py createsuperuser --noinput \
+              #--username {{ .Values.superuser.username }} \
+              #--email {{ .Values.superuser.email }} || true
 
               echo "===== 6단계: Django 웹 서버 기동 ====="
               python manage.py runserver 0.0.0.0:{{ .Values.web.port }}

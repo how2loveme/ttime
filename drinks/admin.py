@@ -39,7 +39,7 @@ class MenuItemAdmin(admin.ModelAdmin):
     def update_menu_view(self, request):
         try:
             # 터미널에서 python manage.py crawl_menu --clear 친 것과 똑같이 동작!
-            call_command('crawl_menu', clear=True)
+            call_command('crawl_menu')
             self.message_user(request, "✅ 메뉴 크롤링 및 업데이트가 완료되었습니다!", level=messages.SUCCESS)
         except Exception as e:
             self.message_user(request, f"❌ 크롤링 중 오류가 발생했습니다: {e}", level=messages.ERROR)
