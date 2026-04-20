@@ -1,5 +1,5 @@
 web:
-  image: compose-vote:v3
+  image: compose-vote:v5
   imagePullPolicy: IfNotPresent # 로컬 테스트를 위해 변경
   port: 8000
 
