@@ -1,6 +1,7 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
 from django.db.models import Count
+from django.db import models
 from .models import VoteSession, MenuItem, Vote, Category, TeamMember, Comment
 
 def index(request):
@@ -25,11 +26,18 @@ def vote(request, session_id):
     voted_member_id = request.session.get(f'voted_{session_id}')
     existing_vote = None
     if voted_member_id:
-        existing_vote = Vote.objects.filter(session=session, participant_id=voted_member_id).select_related('menu_item', 'participant').first()
+        existing_vote = Vote.objects.filter(
+            session=session, participant_id=voted_member_id
+        ).select_related('menu_item', 'participant').first()
 
-    categories = Category.objects.prefetch_related('items').filter(items__is_available=True).distinct()
+    # ── 핵심 수정: 카테고리 안에서도 is_available=True인 메뉴만 가져오기 ──
+    categories = Category.objects.prefetch_related(
+        models.Prefetch(
+            'items',
+            queryset=MenuItem.objects.filter(is_available=True)
+        )
+    ).filter(items__is_available=True).distinct()
 
-    # 인기메뉴 필터링해서 가져오기
     popular_items = MenuItem.objects.filter(is_popular=True, is_available=True)
 
     return render(request, 'drinks/vote.html', {
@@ -37,7 +45,7 @@ def vote(request, session_id):
         'categories': categories,
         'team_members': team_members,
         'existing_vote': existing_vote,
-        'popular_items': popular_items, # 템플릿으로 전달
+        'popular_items': popular_items,
     })
 
 def vote_submit(request, session_id):
