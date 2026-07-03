@@ -52,7 +52,7 @@ jobs:
         id: chart
         run: |
           CHART_VERSION="0.1.0+${{ steps.vars.outputs.tag }}"
-          helm package ./helm/compose-vote-chart --version "$CHART_VERSION" --app-version "${{ steps.vars.outputs.tag }}"
+          helm package ./compose-vote-chart --version "$CHART_VERSION" --app-version "${{ steps.vars.outputs.tag }}"
           helm push compose-vote-${CHART_VERSION}.tgz oci://harbor.softworksapp.cloud/ttime
           echo "chart_version=$CHART_VERSION" >> "$GITHUB_OUTPUT"
 
