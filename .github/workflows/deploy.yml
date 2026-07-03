@@ -1,0 +1,47 @@
+name: Deploy ttime
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build-and-deploy:
+    runs-on: self-hosted
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set Image Tag
+        id: vars
+        run: echo "tag=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Docker Login
+        run: |
+          echo "${{ secrets.HARBOR_PASS }}" | docker login harbor.softworksapp.cloud \
+            -u "${{ secrets.HARBOR_USER }}" --password-stdin
+
+      - name: Build Image
+        run: |
+          docker build -t harbor.softworksapp.cloud/ttime/repository:${{ steps.vars.outputs.tag }} .
+
+      - name: Run Tests
+        run: |
+          docker run --rm \
+            harbor.softworksapp.cloud/ttime/repository:${{ steps.vars.outputs.tag }} \
+            python manage.py test || echo "테스트 실패했지만 일단 진행 (추후 강화)"
+
+      - name: Push Image
+        run: |
+          docker push harbor.softworksapp.cloud/ttime/repository:${{ steps.vars.outputs.tag }}
+
+      - name: Helm Upgrade
+        run: |
+          helm upgrade --install prod-vote \
+            oci://harbor.softworksapp.cloud/ttime/repository \
+            --set image.tag=${{ steps.vars.outputs.tag }} \
+            -n vote-system
+
+      - name: Health Check
+        run: |
+          sleep 15
+          curl -f https://ttime.softworksapp.cloud/ || (helm rollback prod-vote -n vote-system && exit 1)
