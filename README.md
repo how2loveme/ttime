@@ -48,3 +48,6 @@ python manage.py crawl_menu --clear     # 기존 삭제 후 재저장
 > requests 크롤링이 실패할 수 있습니다.
 > 이 경우 `--fallback` 옵션으로 내장 메뉴를 사용하거나,
 > Selenium/Playwright로 크롤러를 확장하세요.
+
+> github ci로 배포환경 구성함 </br> 
+> harbor robot계정 + vm github action runner
