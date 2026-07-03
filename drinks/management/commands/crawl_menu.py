@@ -65,7 +65,7 @@ class Command(BaseCommand):
         seen_names = set()
 
         for cat in categories:
-            category_obj, _ = Category.objects.get_or_create(name=cat['name'])
+            category_obj, _ = Category.objects.get_or_create(brand='compose', name=cat['name'])
             page = 1
             last_page = 1
 
@@ -107,7 +107,8 @@ class Command(BaseCommand):
                 page += 1
                 time.sleep(0.3)  # 서버 부담 줄이기 위한 딜레이
 
-        unavailable_count = MenuItem.objects.exclude(name__in=seen_names).update(is_available=False)
+        unavailable_count = MenuItem.objects.filter(category__brand='compose') \
+            .exclude(name__in=seen_names).update(is_available=False)
         self.stdout.write(
             f"크롤링 완료: 총 {len(seen_names)}개 메뉴 확인, "
             f"{unavailable_count}개 메뉴는 미사용 처리됨"

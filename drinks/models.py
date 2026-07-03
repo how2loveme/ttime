@@ -1,16 +1,23 @@
 from django.db import models
 
 class Category(models.Model):
+    BRAND_CHOICES = [
+        ('compose', '컴포즈커피'),
+        ('mega', '메가커피'),
+        ('mammoth', '매머드익스프레스'),
+    ]
+    brand = models.CharField(max_length=20, choices=BRAND_CHOICES, default='compose', verbose_name='브랜드')
     name = models.CharField(max_length=100, verbose_name='카테고리명')
     order = models.IntegerField(default=0, verbose_name='정렬순서')
 
     class Meta:
-        ordering = ['order', 'name']
+        ordering = ['brand', 'order', 'name']
+        unique_together = ['brand', 'name']
         verbose_name = '카테고리'
         verbose_name_plural = '카테고리 목록'
 
     def __str__(self):
-        return self.name
+        return f"[{self.brand}] {self.name}"
 
 class MenuItem(models.Model):
     category = models.ForeignKey(Category, on_delete=models.CASCADE, related_name='items', verbose_name='카테고리')
