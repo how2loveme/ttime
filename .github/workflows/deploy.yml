@@ -10,6 +10,16 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Check Helm Chart Changes
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            helm:
+              - 'helm/**'
 
       - name: Set Image Tag
         id: vars
@@ -37,10 +47,29 @@ jobs:
         run: |
           docker push harbor.softworksapp.cloud/ttime/repository:${{ steps.vars.outputs.tag }}
 
+      - name: Package and Push Helm Chart (조건부)
+        if: steps.filter.outputs.helm == 'true'
+        id: chart
+        run: |
+          CHART_VERSION="0.1.0+${{ steps.vars.outputs.tag }}"
+          helm package ./helm/compose-vote-chart --version "$CHART_VERSION" --app-version "${{ steps.vars.outputs.tag }}"
+          helm push compose-vote-${CHART_VERSION}.tgz oci://harbor.softworksapp.cloud/ttime
+          echo "chart_version=$CHART_VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve Chart Version (변경 없을 때)
+        if: steps.filter.outputs.helm != 'true'
+        id: chart_fallback
+        run: |
+          LATEST=$(helm show chart oci://harbor.softworksapp.cloud/ttime/compose-vote 2>/dev/null | grep '^version:' | awk '{print $2}')
+          echo "chart_version=$LATEST" >> "$GITHUB_OUTPUT"
+
       - name: Helm Upgrade
         run: |
+          CHART_VER="${{ steps.chart.outputs.chart_version || steps.chart_fallback.outputs.chart_version }}"
+          echo "사용할 차트 버전: $CHART_VER"
           helm upgrade --install ttime \
             oci://harbor.softworksapp.cloud/ttime/compose-vote \
+            --version "$CHART_VER" \
             --set image.tag=${{ steps.vars.outputs.tag }} \
             -n vote-system
 
