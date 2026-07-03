@@ -16,9 +16,12 @@ jobs:
         run: echo "tag=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Docker Login
+        env:
+          HARBOR_USER: ${{ secrets.HARBOR_USER }}
+          HARBOR_PASS: ${{ secrets.HARBOR_PASS }}
         run: |
-          echo "${{ secrets.HARBOR_PASS }}" | docker login harbor.softworksapp.cloud \
-            -u "${{ secrets.HARBOR_USER }}" --password-stdin
+          echo "$HARBOR_PASS" | docker login harbor.softworksapp.cloud \
+            -u "$HARBOR_USER" --password-stdin
 
       - name: Build Image
         run: |
