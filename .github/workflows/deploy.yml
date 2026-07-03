@@ -15,6 +15,14 @@ jobs:
         id: vars
         run: echo "tag=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
 
+      - name: Debug Secret Length
+        env:
+          HARBOR_USER: ${{ secrets.HARBOR_USER }}
+          HARBOR_PASS: ${{ secrets.HARBOR_PASS }}
+        run: |
+          echo "USER length: ${#HARBOR_USER}"
+          echo "PASS length: ${#HARBOR_PASS}"
+
       - name: Docker Login
         env:
           HARBOR_USER: ${{ secrets.HARBOR_USER }}
@@ -25,22 +33,16 @@ jobs:
 
       - name: Build Image
         run: |
-          docker build -t harbor.softworksapp.cloud/ttime/repository:${{ steps.vars.outputs.tag }} .
-
-      - name: Run Tests
-        run: |
-          docker run --rm \
-            harbor.softworksapp.cloud/ttime/repository:${{ steps.vars.outputs.tag }} \
-            python manage.py test || echo "테스트 실패했지만 일단 진행 (추후 강화)"
+          docker build -t harbor.softworksapp.cloud/vote-project/compose-vote:${{ steps.vars.outputs.tag }} .
 
       - name: Push Image
         run: |
-          docker push harbor.softworksapp.cloud/ttime/repository:${{ steps.vars.outputs.tag }}
+          docker push harbor.softworksapp.cloud/vote-project/compose-vote:${{ steps.vars.outputs.tag }}
 
       - name: Helm Upgrade
         run: |
           helm upgrade --install prod-vote \
-            oci://harbor.softworksapp.cloud/ttime/repository \
+            oci://harbor.softworksapp.cloud/vote-project/compose-vote \
             --set image.tag=${{ steps.vars.outputs.tag }} \
             -n vote-system
 
