@@ -39,12 +39,12 @@ jobs:
 
       - name: Helm Upgrade
         run: |
-          helm upgrade --install prod-vote \
-            oci://harbor.softworksapp.cloud/ttime/repository \
+          helm upgrade --install ttime \
+            oci://harbor.softworksapp.cloud/ttime/compose-vote \
             --set image.tag=${{ steps.vars.outputs.tag }} \
             -n vote-system
 
       - name: Health Check
         run: |
           sleep 15
-          curl -f https://ttime.softworksapp.cloud/ || (helm rollback prod-vote -n vote-system && exit 1)
+          curl -f https://ttime.softworksapp.cloud/ || (helm rollback ttime -n vote-system && exit 1)
