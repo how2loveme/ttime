@@ -25,7 +25,7 @@ spec:
                 echo "DB 대기중..."
                 sleep 2
               done
-              echo "DB 연결 확인 완료!!"
+              echo "DB 연결 확인 완료!"
 
       containers:
         - name: django-web
