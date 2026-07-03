@@ -19,7 +19,7 @@ jobs:
         with:
           filters: |
             helm:
-              - 'helm/**'
+              - 'compose-vote-chart/**'
 
       - name: Set Image Tag
         id: vars
