@@ -3,3 +3,5 @@ db/
 __pycache__/
 .env
 *.sqlite3
+# .dockerignore
+.env.local

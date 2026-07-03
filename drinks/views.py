@@ -3,6 +3,7 @@ from django.contrib import messages
 from django.db.models import Count
 from django.db import models
 from .models import VoteSession, MenuItem, Vote, Category, TeamMember, Comment
+from types import SimpleNamespace
 
 def index(request):
     active_sessions = VoteSession.objects.filter(is_active=True)
@@ -30,22 +31,28 @@ def vote(request, session_id):
             session=session, participant_id=voted_member_id
         ).select_related('menu_item', 'participant').first()
 
-    # ── 핵심 수정: 카테고리 안에서도 is_available=True인 메뉴만 가져오기 ──
-    categories = Category.objects.prefetch_related(
+    categories = list(Category.objects.prefetch_related(
         models.Prefetch(
             'items',
             queryset=MenuItem.objects.filter(is_available=True)
         )
-    ).filter(items__is_available=True).distinct()
+    ).filter(items__is_available=True).distinct())
 
-    popular_items = MenuItem.objects.filter(is_popular=True, is_available=True)
+    # 인기메뉴: 실제 Category가 아니라 is_popular=True인 메뉴들로 가상 카테고리 구성
+    popular_qs = MenuItem.objects.filter(is_popular=True, is_available=True)
+    if popular_qs.exists():
+        popular_category = SimpleNamespace(
+            id='popular',
+            name='🔥 인기메뉴',
+            items=SimpleNamespace(all=lambda: popular_qs)
+        )
+        categories.insert(0, popular_category)
 
     return render(request, 'drinks/vote.html', {
         'session': session,
         'categories': categories,
         'team_members': team_members,
         'existing_vote': existing_vote,
-        'popular_items': popular_items,
     })
 
 def vote_submit(request, session_id):

@@ -1,145 +1,114 @@
+import re
 import time
 import requests
 from bs4 import BeautifulSoup
 from django.core.management.base import BaseCommand
 from drinks.models import Category, MenuItem
 
+BASE_URL = "https://composecoffee.com"
+LIST_PATH = "/index.php"
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                  "(KHTML, like Gecko) Chrome/124.0 Safari/537.36"
+}
+
 
 class Command(BaseCommand):
-    help = '컴포즈커피 공식 홈페이지에서 실제 카테고리와 메뉴(페이징 포함)를 크롤링합니다.'
+    help = '컴포즈커피 dispCafemenuGalleryList 기반 메뉴 크롤링'
+
+    def add_arguments(self, parser):
+        parser.add_argument('--fallback', action='store_true')
 
     def handle(self, *args, **options):
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        }
-        base_url = 'https://composecoffee.com'
+        try:
+            self.crawl()
+        except Exception as e:
+            self.stderr.write(f"크롤링 실패: {e}")
+            if options.get('fallback'):
+                self.stdout.write("fallback 모드: 기존 DB 데이터 유지")
+                return
+            raise
 
-        self.stdout.write('홈페이지 접속 중...')
-        resp = requests.get(f'{base_url}/menu', headers=headers, timeout=10)
-        soup = BeautifulSoup(resp.text, 'html.parser')
+    def get_soup(self, params):
+        resp = requests.get(f"{BASE_URL}{LIST_PATH}", params=params,
+                            headers=HEADERS, timeout=10)
+        resp.raise_for_status()
+        return BeautifulSoup(resp.text, 'html.parser')
 
-        # 1. 카테고리 추출
-        ul_tag = soup.find('ul', class_='nav nav-pills nav-sm nav-fill mb-5')
-        if not ul_tag:
-            self.stdout.write(self.style.ERROR('카테고리 영역을 찾을 수 없습니다.'))
-            return
-
+    def get_categories(self):
+        soup = self.get_soup({'mid': 'compose', 'act': 'dispCafemenuGalleryList'})
+        filter_div = soup.select_one('.cafemenu-category-filter')
         categories = []
-        exclude_cats = ['전체', '디저트', 'MD상품']
+        for a_tag in filter_div.select('a.cafemenu-category-btn'):
+            cat_srl = a_tag.get('data-category')
+            name = a_tag.get_text(strip=True)
+            if cat_srl and cat_srl != 'all' and name:
+                categories.append({'srl': cat_srl, 'name': name})
+        return categories
 
-        for a_tag in ul_tag.find_all('a'):
-            cat_name = a_tag.get_text(strip=True)
-            if cat_name and cat_name not in exclude_cats:
-                href = a_tag.get('href')
-                if href:
-                    cat_url = href if href.startswith('http') else base_url + href
-                    categories.append((cat_name, cat_url))
+    def get_last_page(self, soup):
+        pagination = soup.select_one('.pagination')
+        if not pagination:
+            return 1
+        page_numbers = []
+        for a_tag in pagination.select('a'):
+            href = a_tag.get('href', '')
+            match = re.search(r'page=(\d+)', href)
+            if match:
+                page_numbers.append(int(match.group(1)))
+        return max(page_numbers) if page_numbers else 1
 
-        self.stdout.write(self.style.SUCCESS(
-            f'총 {len(categories)}개의 음료 카테고리: {[c[0] for c in categories]}'
-        ))
+    def crawl(self):
+        categories = self.get_categories()
+        self.stdout.write(f"카테고리 {len(categories)}개 발견: {[c['name'] for c in categories]}")
 
-        # ── 핵심 변경 ①: 이번 크롤링에서 수집된 메뉴명을 담을 Set ──────────
-        crawled_names = set()
-        total_added = 0
-        total_updated = 0
+        seen_names = set()
 
-        # 2. 카테고리별 메뉴 및 페이징 크롤링
-        for order, (cat_name, cat_url) in enumerate(categories, start=1):
-            self.stdout.write(f'\n[{cat_name}] 크롤링 시작...')
-            category_obj, _ = Category.objects.get_or_create(
-                name=cat_name, defaults={'order': order}
-            )
-
+        for cat in categories:
+            category_obj, _ = Category.objects.get_or_create(name=cat['name'])
             page = 1
-            while True:
-                target_url = f"{cat_url}?page={page}"
-                self.stdout.write(f'  - 페이지 {page} 요청 중...')
+            last_page = 1
 
-                try:
-                    c_resp = requests.get(target_url, headers=headers, timeout=10)
-                    c_soup = BeautifulSoup(c_resp.text, 'html.parser')
-                except Exception as e:
-                    self.stdout.write(self.style.ERROR(f'통신 오류: {e}'))
-                    break
+            while page <= last_page:
+                params = {
+                    'mid': 'compose',
+                    'act': 'dispCafemenuGalleryList',
+                    'category_srl': cat['srl'],
+                    'page': page,
+                }
+                soup = self.get_soup(params)
 
-                items = c_soup.find_all('div', class_=lambda c: c and 'itemBox' in c.split())
-                if not items:
-                    break
+                if page == 1:
+                    last_page = self.get_last_page(soup)
 
+                items = soup.select('.cafemenu-menu-grid > a.cafemenu-menu-item')
                 for item in items:
-                    name_tag = item.find('h4') or item.find('span', class_='title')
+                    name_tag = item.select_one('.cafemenu-menu-name')
+                    img_tag = item.select_one('.cafemenu-menu-image img')
                     if not name_tag:
-                        name_tag = item.find('div', class_='txtBox')
-
-                    menu_name = name_tag.get_text(strip=True) if name_tag else ""
-                    if not menu_name:
                         continue
 
-                    img_tag = item.find('img')
-                    img_url = ''
-                    if img_tag and img_tag.get('src'):
-                        src = img_tag['src']
-                        img_url = src if src.startswith('http') else base_url + src
+                    item_name = name_tag.get_text(strip=True)
+                    img_src = img_tag.get('src', '') if img_tag else ''
+                    img_url = img_src if img_src.startswith('http') else f"{BASE_URL}{img_src}"
 
-                    # ── 핵심 변경 ②: get_or_create → Upsert 처리 ──────────
-                    crawled_names.add(menu_name)
-                    existing = MenuItem.objects.filter(name=menu_name).first()
+                    seen_names.add(item_name)
 
-                    if existing:
-                        # 기존 메뉴: 이미지/카테고리 최신화, 미사용이었다면 복구
-                        changed = False
-                        if existing.image_url != img_url:
-                            existing.image_url = img_url
-                            changed = True
-                        if existing.category != category_obj:
-                            existing.category = category_obj
-                            changed = True
-                        if not existing.is_available:
-                            existing.is_available = True
-                            changed = True
-                        if changed:
-                            existing.save()
-                            total_updated += 1
-                    else:
-                        # 새 메뉴: 추가
-                        MenuItem.objects.create(
-                            category=category_obj,
-                            name=menu_name,
-                            price=0,
-                            image_url=img_url,
-                            is_available=True,
-                        )
-                        total_added += 1
-                    # ────────────────────────────────────────────────────────
+                    MenuItem.objects.update_or_create(
+                        name=item_name,
+                        defaults={
+                            'category': category_obj,
+                            'image_url': img_url,
+                            'is_available': True,
+                        }
+                    )
 
-                # 3. 페이징 처리
-                nav_tag = c_soup.find('nav', class_='mt-2')
-                if not nav_tag:
-                    break
+                self.stdout.write(f"[{cat['name']}] {page}/{last_page} 페이지 완료 ({len(items)}개)")
+                page += 1
+                time.sleep(0.3)  # 서버 부담 줄이기 위한 딜레이
 
-                next_page_str = f'page={page + 1}'
-                has_next = any(
-                    next_page_str in a.get('href', '') for a in nav_tag.find_all('a')
-                )
-
-                if has_next:
-                    page += 1
-                    time.sleep(0.5)
-                else:
-                    break
-
-        # ── 핵심 변경 ③: 크롤링에서 사라진 메뉴 → 미사용 처리 ──────────────
-        disappeared = MenuItem.objects.filter(
-            is_available=True
-        ).exclude(name__in=crawled_names)
-        disappeared_count = disappeared.count()
-        disappeared.update(is_available=False)
-        # ────────────────────────────────────────────────────────────────────
-
-        self.stdout.write(self.style.SUCCESS(
-            f'\n완료! [추가] {total_added}개 / [수정] {total_updated}개 / [미사용] {disappeared_count}개'
-        ))
-        self.stdout.write(self.style.WARNING(
-            '※ 홈페이지에는 가격이 안 적혀있어 0원으로 저장됩니다. 필요한 경우 관리자(Admin)에서 수정하세요.'
-        ))
+        unavailable_count = MenuItem.objects.exclude(name__in=seen_names).update(is_available=False)
+        self.stdout.write(
+            f"크롤링 완료: 총 {len(seen_names)}개 메뉴 확인, "
+            f"{unavailable_count}개 메뉴는 미사용 처리됨"
+        )

@@ -1,5 +1,5 @@
 web:
-  image: harbor.softworksapp.cloud/ttime/repository:v5
+  image: harbor.softworksapp.cloud/ttime/repository:v6
   imagePullPolicy: Always # 로컬 테스트를 위해 변경
   port: 8000
 
