@@ -33,7 +33,7 @@ jobs:
 
       - name: Debug Harbor User
         env:
-          HARBOR_USER: ${{ secrets.HARBOR2_USER }}
+          HARBOR_USER: ${{ secrets.HARBOR3_USER }}
         run: |
           echo "Harbor user length: ${#HARBOR_USER}"
           echo "Harbor user prefix: ${HARBOR_USER:0:12}"
@@ -50,8 +50,8 @@ jobs:
 
       - name: Docker Login
         env:
-          HARBOR_USER: ${{ secrets.HARBOR2_USER }}
-          HARBOR_PASS: ${{ secrets.HARBOR2_PASS }}
+          HARBOR_USER: ${{ secrets.HARBOR3_USER }}
+          HARBOR_PASS: ${{ secrets.HARBOR3_PASS }}
         run: |
           test -n "$HARBOR_USER"
           test -n "$HARBOR_PASS"
@@ -73,8 +73,8 @@ jobs:
 
       - name: Harbor2 Smoke Test
         env:
-          HARBOR_USER: ${{ secrets.HARBOR2_USER }}
-          HARBOR_PASS: ${{ secrets.HARBOR2_PASS }}
+          HARBOR_USER: ${{ secrets.HARBOR3_USER }}
+          HARBOR_PASS: ${{ secrets.HARBOR3_PASS }}
         run: |
           set -e
           docker logout harbor2.softworksapp.cloud || true
@@ -96,8 +96,8 @@ jobs:
 
       - name: Helm Registry Login
         env:
-          HARBOR_USER: ${{ secrets.HARBOR2_USER }}
-          HARBOR_PASS: ${{ secrets.HARBOR2_PASS }}
+          HARBOR_USER: ${{ secrets.HARBOR3_USER }}
+          HARBOR_PASS: ${{ secrets.HARBOR3_PASS }}
         run: |
           echo "$HARBOR_PASS" | helm registry login "${REGISTRY}" \
             --username "$HARBOR_USER" \
