@@ -28,7 +28,7 @@ jobs:
       - name: Docker Login
         env:
           HARBOR_USER: ${{ secrets.HARBOR_USER }}
-          HARBOR_PASS: ${{ secrets.HARBOR_PASS }}
+          HARBOR_PASS: ${{ secrets.HARBOR_PASS2 }}
         run: |
           echo "$HARBOR_PASS" | docker login harbor2.softworksapp.cloud \
             -u "$HARBOR_USER" --password-stdin
