@@ -31,6 +31,13 @@ jobs:
         id: vars
         run: echo "tag=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
 
+      - name: Debug Harbor User
+        env:
+          HARBOR_USER: ${{ secrets.HARBOR2_USER }}
+        run: |
+          echo "Harbor user length: ${#HARBOR_USER}"
+          echo "Harbor user prefix: ${HARBOR_USER:0:12}"
+
       - name: Show target refs
         run: |
           echo "REGISTRY=${REGISTRY}"
@@ -63,6 +70,19 @@ jobs:
           docker run --rm \
             "${REGISTRY}/${PROJECT}/${IMAGE_NAME}:${{ steps.vars.outputs.tag }}" \
             python manage.py test || echo "테스트 실패했지만 일단 진행"
+
+      - name: Harbor2 Smoke Test
+        env:
+          HARBOR_USER: ${{ secrets.HARBOR2_USER }}
+          HARBOR_PASS: ${{ secrets.HARBOR2_PASS }}
+        run: |
+          set -e
+          docker logout harbor2.softworksapp.cloud || true
+          echo "$HARBOR_PASS" | docker login harbor2.softworksapp.cloud -u "$HARBOR_USER" --password-stdin
+
+          docker pull alpine:3.20
+          docker tag alpine:3.20 harbor2.softworksapp.cloud/ttime/push-test:${{ github.run_id }}
+          docker push harbor2.softworksapp.cloud/ttime/push-test:${{ github.run_id }}
 
       - name: Push Image
         run: |
