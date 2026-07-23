@@ -27,25 +27,25 @@ jobs:
 
       - name: Docker Login
         env:
-          HARBOR_USER: ${{ secrets.HARBOR_USER }}
-          HARBOR_PASS: ${{ secrets.HARBOR_PASS }}
+          HARBOR_USER: ${{ secrets.HARBOR2_USER }}
+          HARBOR_PASS: ${{ secrets.HARBOR2_PASS }}
         run: |
-          echo "$HARBOR_PASS" | docker login harbor.softworksapp.cloud \
+          echo "$HARBOR_PASS" | docker login harbor2.softworksapp.cloud \
             -u "$HARBOR_USER" --password-stdin
 
       - name: Build Image
         run: |
-          docker build -t harbor.softworksapp.cloud/ttime/repository:${{ steps.vars.outputs.tag }} .
+          docker build -t harbor2.softworksapp.cloud/ttime/repository:${{ steps.vars.outputs.tag }} .
 
       - name: Run Tests
         run: |
           docker run --rm \
-            harbor.softworksapp.cloud/ttime/repository:${{ steps.vars.outputs.tag }} \
+            harbor2.softworksapp.cloud/ttime/repository:${{ steps.vars.outputs.tag }} \
             python manage.py test || echo "테스트 실패했지만 일단 진행 (추후 강화)"
 
       - name: Push Image
         run: |
-          docker push harbor.softworksapp.cloud/ttime/repository:${{ steps.vars.outputs.tag }}
+          docker push harbor2.softworksapp.cloud/ttime/repository:${{ steps.vars.outputs.tag }}
 
       - name: Package and Push Helm Chart (조건부)
         if: steps.filter.outputs.helm == 'true'
@@ -53,14 +53,14 @@ jobs:
         run: |
           CHART_VERSION="0.1.0+${{ steps.vars.outputs.tag }}"
           helm package ./compose-vote-chart --version "$CHART_VERSION" --app-version "${{ steps.vars.outputs.tag }}"
-          helm push compose-vote-${CHART_VERSION}.tgz oci://harbor.softworksapp.cloud/ttime
+          helm push compose-vote-${CHART_VERSION}.tgz oci://harbor2.softworksapp.cloud/ttime
           echo "chart_version=$CHART_VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Resolve Chart Version (변경 없을 때)
         if: steps.filter.outputs.helm != 'true'
         id: chart_fallback
         run: |
-          LATEST=$(helm show chart oci://harbor.softworksapp.cloud/ttime/compose-vote 2>/dev/null | grep '^version:' | awk '{print $2}')
+          LATEST=$(helm show chart oci://harbor2.softworksapp.cloud/ttime/compose-vote 2>/dev/null | grep '^version:' | awk '{print $2}')
           echo "chart_version=$LATEST" >> "$GITHUB_OUTPUT"
 
       - name: Helm Upgrade
@@ -68,7 +68,7 @@ jobs:
           CHART_VER="${{ steps.chart.outputs.chart_version || steps.chart_fallback.outputs.chart_version }}"
           echo "사용할 차트 버전: $CHART_VER"
           helm upgrade --install ttime \
-            oci://harbor.softworksapp.cloud/ttime/compose-vote \
+            oci://harbor2.softworksapp.cloud/ttime/compose-vote \
             --version "$CHART_VER" \
             --set image.tag=${{ steps.vars.outputs.tag }} \
             -n vote-system
@@ -76,4 +76,4 @@ jobs:
       - name: Health Check
         run: |
           sleep 15
-          curl -f https://ttime.softworksapp.cloud/ || (helm rollback ttime -n vote-system && exit 1)
+          curl -f https://ttime2.softworksapp.cloud/ || (helm rollback ttime -n vote-system && exit 1)
