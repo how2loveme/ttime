@@ -4,9 +4,15 @@ on:
   push:
     branches: [main]
 
+env:
+  REGISTRY: harbor2.softworksapp.cloud
+  PROJECT: ttime
+  IMAGE_NAME: repository
+
 jobs:
   build-and-deploy:
     runs-on: self-hosted
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -25,42 +31,72 @@ jobs:
         id: vars
         run: echo "tag=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
 
+      - name: Show target refs
+        run: |
+          echo "REGISTRY=${REGISTRY}"
+          echo "IMAGE=${REGISTRY}/${PROJECT}/${IMAGE_NAME}:${{ steps.vars.outputs.tag }}"
+          echo "CHART=oci://${REGISTRY}/${PROJECT}/compose-vote"
+
+      - name: Docker Logout (clean previous creds)
+        run: |
+          docker logout "${REGISTRY}" || true
+
       - name: Docker Login
         env:
           HARBOR_USER: ${{ secrets.HARBOR2_USER }}
           HARBOR_PASS: ${{ secrets.HARBOR2_PASS }}
         run: |
-          echo "$HARBOR_PASS" | docker login harbor2.softworksapp.cloud \
-            -u "$HARBOR_USER" --password-stdin
+          test -n "$HARBOR_USER"
+          test -n "$HARBOR_PASS"
+          echo "$HARBOR_PASS" | docker login "${REGISTRY}" -u "$HARBOR_USER" --password-stdin
+
+      - name: Check Docker Config
+        run: |
+          cat ~/.docker/config.json || true
 
       - name: Build Image
         run: |
-          docker build -t harbor2.softworksapp.cloud/ttime/repository:${{ steps.vars.outputs.tag }} .
+          docker build -t "${REGISTRY}/${PROJECT}/${IMAGE_NAME}:${{ steps.vars.outputs.tag }}" .
 
       - name: Run Tests
         run: |
           docker run --rm \
-            harbor2.softworksapp.cloud/ttime/repository:${{ steps.vars.outputs.tag }} \
-            python manage.py test || echo "테스트 실패했지만 일단 진행 (추후 강화)"
+            "${REGISTRY}/${PROJECT}/${IMAGE_NAME}:${{ steps.vars.outputs.tag }}" \
+            python manage.py test || echo "테스트 실패했지만 일단 진행"
 
       - name: Push Image
         run: |
-          docker push harbor2.softworksapp.cloud/ttime/repository:${{ steps.vars.outputs.tag }}
+          docker push "${REGISTRY}/${PROJECT}/${IMAGE_NAME}:${{ steps.vars.outputs.tag }}"
 
-      - name: Package and Push Helm Chart (조건부)
+      - name: Registry Smoke Test
+        run: |
+          docker pull alpine:3.20
+          docker tag alpine:3.20 "${REGISTRY}/${PROJECT}/push-test:${{ github.run_id }}"
+          docker push "${REGISTRY}/${PROJECT}/push-test:${{ github.run_id }}"
+
+      - name: Helm Registry Login
+        env:
+          HARBOR_USER: ${{ secrets.HARBOR2_USER }}
+          HARBOR_PASS: ${{ secrets.HARBOR2_PASS }}
+        run: |
+          echo "$HARBOR_PASS" | helm registry login "${REGISTRY}" \
+            --username "$HARBOR_USER" \
+            --password-stdin
+
+      - name: Package and Push Helm Chart
         if: steps.filter.outputs.helm == 'true'
         id: chart
         run: |
           CHART_VERSION="0.1.0+${{ steps.vars.outputs.tag }}"
           helm package ./compose-vote-chart --version "$CHART_VERSION" --app-version "${{ steps.vars.outputs.tag }}"
-          helm push compose-vote-${CHART_VERSION}.tgz oci://harbor2.softworksapp.cloud/ttime
+          helm push "compose-vote-${CHART_VERSION}.tgz" "oci://${REGISTRY}/${PROJECT}"
           echo "chart_version=$CHART_VERSION" >> "$GITHUB_OUTPUT"
 
-      - name: Resolve Chart Version (변경 없을 때)
+      - name: Resolve Chart Version
         if: steps.filter.outputs.helm != 'true'
         id: chart_fallback
         run: |
-          LATEST=$(helm show chart oci://harbor2.softworksapp.cloud/ttime/compose-vote 2>/dev/null | grep '^version:' | awk '{print $2}')
+          LATEST=$(helm show chart "oci://${REGISTRY}/${PROJECT}/compose-vote" 2>/dev/null | grep '^version:' | awk '{print $2}')
           echo "chart_version=$LATEST" >> "$GITHUB_OUTPUT"
 
       - name: Helm Upgrade
@@ -68,9 +104,10 @@ jobs:
           CHART_VER="${{ steps.chart.outputs.chart_version || steps.chart_fallback.outputs.chart_version }}"
           echo "사용할 차트 버전: $CHART_VER"
           helm upgrade --install ttime \
-            oci://harbor2.softworksapp.cloud/ttime/compose-vote \
+            "oci://${REGISTRY}/${PROJECT}/compose-vote" \
             --version "$CHART_VER" \
-            --set image.tag=${{ steps.vars.outputs.tag }} \
+            --set image.repository="${REGISTRY}/${PROJECT}/${IMAGE_NAME}" \
+            --set image.tag="${{ steps.vars.outputs.tag }}" \
             -n vote-system
 
       - name: Health Check
