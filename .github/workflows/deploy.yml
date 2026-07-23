@@ -53,7 +53,7 @@ jobs:
         run: |
           CHART_VERSION="0.1.0+${{ steps.vars.outputs.tag }}"
           helm package ./compose-vote-chart --version "$CHART_VERSION" --app-version "${{ steps.vars.outputs.tag }}"
-          helm push compose-vote-${CHART_VERSION}.tgz oci://harbor2.softworksapp.cloud/ttime
+          helm push compose-vote-${CHART_VERSION}.tgz oci://harbor2.softworksapp.cloud/ttime --plain-http
           echo "chart_version=$CHART_VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Resolve Chart Version (변경 없을 때)
