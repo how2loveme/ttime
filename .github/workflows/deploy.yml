@@ -4,15 +4,9 @@ on:
   push:
     branches: [main]
 
-env:
-  REGISTRY: harbor2.softworksapp.cloud
-  PROJECT: ttime
-  IMAGE_NAME: repository
-
 jobs:
   build-and-deploy:
     runs-on: self-hosted
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -31,92 +25,42 @@ jobs:
         id: vars
         run: echo "tag=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
 
-      - name: Debug Harbor User
-        env:
-          HARBOR_USER: ${{ secrets.HARBOR3_USER }}
-        run: |
-          echo "Harbor user length: ${#HARBOR_USER}"
-          echo "Harbor user prefix: ${HARBOR_USER:0:12}"
-
-      - name: Show target refs
-        run: |
-          echo "REGISTRY=${REGISTRY}"
-          echo "IMAGE=${REGISTRY}/${PROJECT}/${IMAGE_NAME}:${{ steps.vars.outputs.tag }}"
-          echo "CHART=oci://${REGISTRY}/${PROJECT}/compose-vote"
-
-      - name: Docker Logout (clean previous creds)
-        run: |
-          docker logout "${REGISTRY}" || true
-
       - name: Docker Login
         env:
-          HARBOR_USER: ${{ secrets.HARBOR3_USER }}
-          HARBOR_PASS: ${{ secrets.HARBOR3_PASS }}
+          HARBOR_USER: ${{ secrets.HARBOR_USER }}
+          HARBOR_PASS: ${{ secrets.HARBOR_PASS }}
         run: |
-          test -n "$HARBOR_USER"
-          test -n "$HARBOR_PASS"
-          echo "$HARBOR_PASS" | docker login "${REGISTRY}" -u "$HARBOR_USER" --password-stdin
-
-      - name: Check Docker Config
-        run: |
-          cat ~/.docker/config.json || true
+          echo "$HARBOR_PASS" | docker login harbor.softworksapp.cloud \
+            -u "$HARBOR_USER" --password-stdin
 
       - name: Build Image
         run: |
-          docker build -t "${REGISTRY}/${PROJECT}/${IMAGE_NAME}:${{ steps.vars.outputs.tag }}" .
+          docker build -t harbor.softworksapp.cloud/ttime/repository:${{ steps.vars.outputs.tag }} .
 
       - name: Run Tests
         run: |
           docker run --rm \
-            "${REGISTRY}/${PROJECT}/${IMAGE_NAME}:${{ steps.vars.outputs.tag }}" \
-            python manage.py test || echo "테스트 실패했지만 일단 진행"
-
-      - name: Harbor2 Smoke Test
-        env:
-          HARBOR_USER: ${{ secrets.HARBOR3_USER }}
-          HARBOR_PASS: ${{ secrets.HARBOR3_PASS }}
-        run: |
-          set -e
-          docker logout harbor2.softworksapp.cloud || true
-          echo "$HARBOR_PASS" | docker login harbor2.softworksapp.cloud -u "$HARBOR_USER" --password-stdin
-
-          docker pull alpine:3.20
-          docker tag alpine:3.20 harbor2.softworksapp.cloud/ttime/push-test:${{ github.run_id }}
-          docker push harbor2.softworksapp.cloud/ttime/push-test:${{ github.run_id }}
+            harbor.softworksapp.cloud/ttime/repository:${{ steps.vars.outputs.tag }} \
+            python manage.py test || echo "테스트 실패했지만 일단 진행 (추후 강화)"
 
       - name: Push Image
         run: |
-          docker push "${REGISTRY}/${PROJECT}/${IMAGE_NAME}:${{ steps.vars.outputs.tag }}"
+          docker push harbor.softworksapp.cloud/ttime/repository:${{ steps.vars.outputs.tag }}
 
-      - name: Registry Smoke Test
-        run: |
-          docker pull alpine:3.20
-          docker tag alpine:3.20 "${REGISTRY}/${PROJECT}/push-test:${{ github.run_id }}"
-          docker push "${REGISTRY}/${PROJECT}/push-test:${{ github.run_id }}"
-
-      - name: Helm Registry Login
-        env:
-          HARBOR_USER: ${{ secrets.HARBOR3_USER }}
-          HARBOR_PASS: ${{ secrets.HARBOR3_PASS }}
-        run: |
-          echo "$HARBOR_PASS" | helm registry login "${REGISTRY}" \
-            --username "$HARBOR_USER" \
-            --password-stdin
-
-      - name: Package and Push Helm Chart
+      - name: Package and Push Helm Chart (조건부)
         if: steps.filter.outputs.helm == 'true'
         id: chart
         run: |
           CHART_VERSION="0.1.0+${{ steps.vars.outputs.tag }}"
           helm package ./compose-vote-chart --version "$CHART_VERSION" --app-version "${{ steps.vars.outputs.tag }}"
-          helm push "compose-vote-${CHART_VERSION}.tgz" "oci://${REGISTRY}/${PROJECT}"
+          helm push compose-vote-${CHART_VERSION}.tgz oci://harbor.softworksapp.cloud/ttime
           echo "chart_version=$CHART_VERSION" >> "$GITHUB_OUTPUT"
 
-      - name: Resolve Chart Version
+      - name: Resolve Chart Version (변경 없을 때)
         if: steps.filter.outputs.helm != 'true'
         id: chart_fallback
         run: |
-          LATEST=$(helm show chart "oci://${REGISTRY}/${PROJECT}/compose-vote" 2>/dev/null | grep '^version:' | awk '{print $2}')
+          LATEST=$(helm show chart oci://harbor.softworksapp.cloud/ttime/compose-vote 2>/dev/null | grep '^version:' | awk '{print $2}')
           echo "chart_version=$LATEST" >> "$GITHUB_OUTPUT"
 
       - name: Helm Upgrade
@@ -124,13 +68,12 @@ jobs:
           CHART_VER="${{ steps.chart.outputs.chart_version || steps.chart_fallback.outputs.chart_version }}"
           echo "사용할 차트 버전: $CHART_VER"
           helm upgrade --install ttime \
-            "oci://${REGISTRY}/${PROJECT}/compose-vote" \
+            oci://harbor.softworksapp.cloud/ttime/compose-vote \
             --version "$CHART_VER" \
-            --set image.repository="${REGISTRY}/${PROJECT}/${IMAGE_NAME}" \
-            --set image.tag="${{ steps.vars.outputs.tag }}" \
+            --set image.tag=${{ steps.vars.outputs.tag }} \
             -n vote-system
 
       - name: Health Check
         run: |
           sleep 15
-          curl -f https://ttime2.softworksapp.cloud/ || (helm rollback ttime -n vote-system && exit 1)
+          curl -f https://ttime.softworksapp.cloud/ || (helm rollback ttime -n vote-system && exit 1)
