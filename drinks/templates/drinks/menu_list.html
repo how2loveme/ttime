@@ -1,28 +1,81 @@
 {% extends "drinks/base.html" %}
 {% block title %}전체 메뉴{% endblock %}
+{% block extra_head %}
+<style>
+  .nav-pills .nav-link { color: var(--cd); font-weight: 600; }
+  .nav-pills .nav-link.active { background-color: var(--cy); color: var(--cd); }
+</style>
+{% endblock %}
 {% block content %}
-<h2 class="fw-bold mb-1">전체 메뉴</h2>
-<p class="text-muted mb-4">컴포즈커피 신도림점</p>
-{% for category in categories %}
-<h5 class="fw-bold mt-4">
-  <span class="badge badge-cat">{{ category.name }}</span>
-</h5>
-<div class="row g-2 mb-3">
-  {% for item in category.items.all %}
-  {% if item.is_available %}
-  <div class="col-6 col-md-4 col-lg-3">
-    <div class="card p-3 h-100 text-center">
-      {% if item.image_url %}
-      <img src="{{ item.image_url }}" alt="{{ item.name }}"
-           class="mx-auto mb-2 rounded" style="height:55px; object-fit:contain;">
-      {% else %}
-      <div class="mb-2" style="font-size:1.8rem;">☕</div>
-      {% endif %}
-      <div class="fw-semibold small">{{ item.name }}</div>
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <h2 class="fw-bold mb-0">전체 메뉴</h2>
+  <input type="text" id="menuSearch" class="form-control" style="max-width:240px;"
+         placeholder="메뉴 이름 검색...">
+</div>
+
+{% if coffee_shops %}
+<!-- 커피점 탭 -->
+<ul class="nav nav-pills mb-4" id="shopTab" role="tablist">
+  {% for shop in coffee_shops %}
+  <li class="nav-item" role="presentation">
+    <button class="nav-link {% if forloop.first %}active{% endif %}"
+            data-bs-toggle="pill" data-bs-target="#shop-{{ shop.id }}"
+            type="button" role="tab">{{ shop }}</button>
+  </li>
+  {% endfor %}
+</ul>
+
+<div class="tab-content">
+  {% for shop in coffee_shops %}
+  <div class="tab-pane fade {% if forloop.first %}show active{% endif %}" id="shop-{{ shop.id }}" role="tabpanel">
+    {% for category in shop.categories.all %}
+    <div class="category-block">
+      <h5 class="fw-bold mt-4">
+        <span class="badge badge-cat">{{ category.name }}</span>
+      </h5>
+      <div class="row g-2 mb-3">
+        {% for item in category.items.all %}
+        <div class="col-6 col-md-4 col-lg-3 menu-item-col">
+          <div class="card p-3 h-100 text-center {% if not item.is_available %}opacity-50{% endif %}">
+            {% if item.image_url %}
+            <img src="{{ item.image_url }}" alt="{{ item.name }}"
+                 class="mx-auto mb-2 rounded" style="height:55px; object-fit:contain;">
+            {% else %}
+            <div class="mb-2" style="font-size:1.8rem;">☕</div>
+            {% endif %}
+            <div class="fw-semibold small menu-name">{{ item.name }}</div>
+            {% if not item.is_available %}
+            <div class="badge bg-danger mt-1">일시품절</div>
+            {% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
     </div>
+    {% empty %}
+    <p class="text-muted">등록된 메뉴가 없습니다.</p>
+    {% endfor %}
   </div>
-  {% endif %}
   {% endfor %}
 </div>
-{% endfor %}
+{% else %}
+<p class="text-muted">등록된 커피점이 없습니다.</p>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  document.getElementById('menuSearch').addEventListener('input', function () {
+    const q = this.value.trim().toLowerCase();
+    document.querySelectorAll('.menu-item-col').forEach(col => {
+      const name = col.querySelector('.menu-name').textContent.toLowerCase();
+      col.style.display = name.includes(q) ? '' : 'none';
+    });
+    // 카테고리 전체가 비면 카테고리 블록 숨기기
+    document.querySelectorAll('.category-block').forEach(block => {
+      const visible = block.querySelectorAll('.menu-item-col:not([style*="none"])').length > 0;
+      block.style.display = (q === '' || visible) ? '' : 'none';
+    });
+  });
+</script>
 {% endblock %}

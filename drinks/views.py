@@ -2,7 +2,7 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
 from django.db.models import Count
 from django.db import models
-from .models import VoteSession, MenuItem, Vote, Category, TeamMember, Comment
+from .models import VoteSession, MenuItem, Vote, Category, TeamMember, Comment, CoffeeShop
 from types import SimpleNamespace
 
 def index(request):
@@ -14,8 +14,15 @@ def index(request):
     })
 
 def menu_list(request):
-    categories = Category.objects.prefetch_related('items').all()
-    return render(request, 'drinks/menu_list.html', {'categories': categories})
+    coffee_shops = CoffeeShop.objects.filter(is_active=True).prefetch_related(
+        models.Prefetch(
+            'categories',
+            queryset=Category.objects.prefetch_related(
+                models.Prefetch('items', queryset=MenuItem.objects.order_by('name'))
+            )
+        )
+    )
+    return render(request, 'drinks/menu_list.html', {'coffee_shops': coffee_shops})
 
 def vote(request, session_id):
     session = get_object_or_404(VoteSession, pk=session_id)
@@ -31,15 +38,20 @@ def vote(request, session_id):
             session=session, participant_id=voted_member_id
         ).select_related('menu_item', 'participant').first()
 
-    categories = list(Category.objects.prefetch_related(
+    # 해당 커피점의 카테고리와 메뉴만 필터링
+    categories = list(Category.objects.filter(
+        coffee_shop=session.coffee_shop
+    ).prefetch_related(
         models.Prefetch(
             'items',
-            queryset=MenuItem.objects.filter(is_available=True)
+            queryset=MenuItem.objects.filter(coffee_shop=session.coffee_shop)
         )
-    ).filter(items__is_available=True).distinct())
+    ).filter(items__isnull=False).distinct())
 
-    # 인기메뉴: 실제 Category가 아니라 is_popular=True인 메뉴들로 가상 카테고리 구성
-    popular_qs = MenuItem.objects.filter(is_popular=True, is_available=True)
+    # 인기메뉴: 해당 커피점의 is_popular=True인 메뉴들로 가상 카테고리 구성
+    popular_qs = MenuItem.objects.filter(
+        is_popular=True, is_available=True, coffee_shop=session.coffee_shop
+    )
     if popular_qs.exists():
         popular_category = SimpleNamespace(
             id='popular',
@@ -68,7 +80,7 @@ def vote_submit(request, session_id):
         return redirect('vote', session_id=session_id)
 
     participant = get_object_or_404(TeamMember, pk=participant_id, is_active=True)
-    menu_item = get_object_or_404(MenuItem, pk=menu_item_id, is_available=True)
+    menu_item = get_object_or_404(MenuItem, pk=menu_item_id, is_available=True, coffee_shop=session.coffee_shop)
 
     vote_obj, created = Vote.objects.update_or_create(
         session=session, participant=participant, defaults={'menu_item': menu_item}
@@ -86,7 +98,12 @@ def vote_submit(request, session_id):
 def stats(request, session_id):
     session = get_object_or_404(VoteSession, pk=session_id)
 
-    vote_counts = Vote.objects.filter(session=session).values('menu_item__name', 'menu_item__category__name').annotate(count=Count('id')).order_by('-count')
+    # 해당 커피점의 메뉴만 필터링하여 투표 결과 계산
+    vote_counts = Vote.objects.filter(
+        session=session,
+        menu_item__coffee_shop=session.coffee_shop
+    ).values('menu_item__name', 'menu_item__category__name').annotate(count=Count('id')).order_by('-count')
+
     all_votes = Vote.objects.filter(session=session).select_related('menu_item', 'participant').order_by('participant__name')
 
     total = session.total_votes

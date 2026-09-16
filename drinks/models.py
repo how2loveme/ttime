@@ -1,18 +1,39 @@
 from django.db import models
 
+class CoffeeShop(models.Model):
+    name = models.CharField(max_length=100, verbose_name='커피점 상호명')
+    branch_name = models.CharField(max_length=100, blank=True, verbose_name='지점명')
+    website_url = models.URLField(blank=True, verbose_name='웹사이트 URL')
+    description = models.TextField(blank=True, verbose_name='설명')
+    is_active = models.BooleanField(default=True, verbose_name='활성화')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['name', 'branch_name']
+        verbose_name = '커피점'
+        verbose_name_plural = '커피점 목록'
+
+    def __str__(self):
+        if self.branch_name:
+            return f"{self.name} {self.branch_name}"
+        return self.name
+
 class Category(models.Model):
+    coffee_shop = models.ForeignKey(CoffeeShop, on_delete=models.CASCADE, related_name='categories', verbose_name='커피점')
     name = models.CharField(max_length=100, verbose_name='카테고리명')
     order = models.IntegerField(default=0, verbose_name='정렬순서')
 
     class Meta:
-        ordering = ['order', 'name']
+        ordering = ['coffee_shop', 'order', 'name']
         verbose_name = '카테고리'
         verbose_name_plural = '카테고리 목록'
+        unique_together = [['coffee_shop', 'name']]
 
     def __str__(self):
-        return self.name
+        return f"[{self.coffee_shop}] {self.name}"
 
 class MenuItem(models.Model):
+    coffee_shop = models.ForeignKey(CoffeeShop, on_delete=models.CASCADE, related_name='menu_items', verbose_name='커피점')
     category = models.ForeignKey(Category, on_delete=models.CASCADE, related_name='items', verbose_name='카테고리')
     name = models.CharField(max_length=200, verbose_name='메뉴명')
     price = models.IntegerField(default=0, verbose_name='가격(원)')
@@ -24,12 +45,13 @@ class MenuItem(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ['category__order', 'name']
+        ordering = ['coffee_shop', 'category__order', 'name']
         verbose_name = '메뉴'
         verbose_name_plural = '메뉴 목록'
+        unique_together = [['coffee_shop', 'name']]
 
     def __str__(self):
-        return f"[{self.category.name}] {self.name}"
+        return f"[{self.coffee_shop}] {self.name}"
 
 # --- 새로 추가된 팀원 모델 ---
 class TeamMember(models.Model):
@@ -45,6 +67,7 @@ class TeamMember(models.Model):
         return self.name
 
 class VoteSession(models.Model):
+    coffee_shop = models.ForeignKey(CoffeeShop, on_delete=models.CASCADE, related_name='vote_sessions', verbose_name='커피점')
     title = models.CharField(max_length=200, verbose_name='투표 제목')
     vote_date = models.DateField(verbose_name='티타임 날짜')
     is_active = models.BooleanField(default=True, verbose_name='투표 진행중')
@@ -56,7 +79,7 @@ class VoteSession(models.Model):
         verbose_name_plural = '투표 세션 목록'
 
     def __str__(self):
-        return f"{self.title} ({self.vote_date})"
+        return f"[{self.coffee_shop}] {self.title} ({self.vote_date})"
 
     @property
     def total_votes(self):

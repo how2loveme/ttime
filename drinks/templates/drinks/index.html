@@ -3,7 +3,7 @@
 {% block content %}
 <div class="text-center mb-4">
   <h1 class="fw-bold">☕ 이번 주 음료 투표</h1>
-  <p class="text-muted">컴포즈커피 신도림점 · 팀 티타임 음료를 선택해주세요</p>
+  <p class="text-muted">팀 티타임 음료를 선택해주세요</p>
 </div>
 
 {% if active_sessions %}
@@ -15,6 +15,9 @@
       <div class="d-flex justify-content-between align-items-start">
         <div>
           <h5 class="fw-bold mb-1">{{ session.title }}</h5>
+          <p class="text-muted mb-1">
+            <i class="bi bi-shop"></i> {{ session.coffee_shop }}
+          </p>
           <p class="text-muted mb-2">
             <i class="bi bi-calendar3"></i> {{ session.vote_date }}
           </p>
@@ -54,6 +57,7 @@
       <div class="d-flex justify-content-between align-items-center">
         <div>
           <span class="fw-semibold">{{ session.title }}</span>
+          <span class="text-muted ms-2 small">{{ session.coffee_shop }}</span>
           <span class="text-muted ms-2 small">{{ session.vote_date }}</span>
         </div>
         <a href="{% url 'stats' session.id %}" class="btn btn-outline-secondary btn-sm">

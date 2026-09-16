@@ -3,7 +3,7 @@ import time
 import requests
 from bs4 import BeautifulSoup
 from django.core.management.base import BaseCommand
-from drinks.models import Category, MenuItem
+from drinks.models import Category, MenuItem, CoffeeShop
 
 BASE_URL = "https://composecoffee.com"
 LIST_PATH = "/index.php"
@@ -18,9 +18,32 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument('--fallback', action='store_true')
+        parser.add_argument('--coffee-shop', type=str, help='커피점 ID 또는 이름')
 
     def handle(self, *args, **options):
         try:
+            # 커피점 파라미터 처리
+            coffee_shop = options.get('coffee_shop')
+            if coffee_shop:
+                try:
+                    # ID로 찾기 시도
+                    self.coffee_shop = CoffeeShop.objects.get(id=coffee_shop)
+                except (CoffeeShop.DoesNotExist, ValueError):
+                    # 이름으로 찾기 시도
+                    self.coffee_shop = CoffeeShop.objects.get(name__icontains=coffee_shop)
+            else:
+                # 기본 커피점 (컴포즈커피 신도림점)
+                self.coffee_shop, _ = CoffeeShop.objects.get_or_create(
+                    name='컴포즈커피',
+                    branch_name='신도림점',
+                    defaults={
+                        'website_url': 'https://composecoffee.com',
+                        'description': '기본 컴포즈커피 신도림점',
+                        'is_active': True
+                    }
+                )
+
+            self.stdout.write(f"크롤링 대상 커피점: {self.coffee_shop}")
             self.crawl()
         except Exception as e:
             self.stderr.write(f"크롤링 실패: {e}")
@@ -65,7 +88,10 @@ class Command(BaseCommand):
         seen_names = set()
 
         for cat in categories:
-            category_obj, _ = Category.objects.get_or_create(name=cat['name'])
+            category_obj, _ = Category.objects.get_or_create(
+                coffee_shop=self.coffee_shop,
+                name=cat['name']
+            )
             page = 1
             last_page = 1
 
@@ -95,6 +121,7 @@ class Command(BaseCommand):
                     seen_names.add(item_name)
 
                     MenuItem.objects.update_or_create(
+                        coffee_shop=self.coffee_shop,
                         name=item_name,
                         defaults={
                             'category': category_obj,
@@ -107,7 +134,9 @@ class Command(BaseCommand):
                 page += 1
                 time.sleep(0.3)  # 서버 부담 줄이기 위한 딜레이
 
-        unavailable_count = MenuItem.objects.exclude(name__in=seen_names).update(is_available=False)
+        unavailable_count = MenuItem.objects.filter(
+            coffee_shop=self.coffee_shop
+        ).exclude(name__in=seen_names).update(is_available=False)
         self.stdout.write(
             f"크롤링 완료: 총 {len(seen_names)}개 메뉴 확인, "
             f"{unavailable_count}개 메뉴는 미사용 처리됨"
