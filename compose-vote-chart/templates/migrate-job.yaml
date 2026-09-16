@@ -1,0 +1,72 @@
+# 업그레이드 전 DB 백업 + 마이그레이션 Job
+# - pre-upgrade hook: web Pod이 새 이미지로 교체되기 전에 실행됨
+# - drinks/migrations 에 미적용 마이그레이션이 있을 때만 백업/migrate 수행
+#   (migrate --check 가 pending migration을 감지)
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Release.Name }}-migrate
+  annotations:
+    "helm.sh/hook": pre-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  template:
+    spec:
+      imagePullSecrets:
+        - name: harbor-regcred
+      restartPolicy: Never
+      containers:
+        - name: migrate
+          image: {{ .Values.web.image }}
+          imagePullPolicy: {{ .Values.web.imagePullPolicy }}
+          command: ["sh", "-c"]
+          args:
+            - |
+              echo "===== 1단계: DB 대기 ====="
+              until python -c "import socket; socket.create_connection(('compose-vote-db', 5432), 2)" 2>/dev/null; do
+                echo "DB 대기중..."
+                sleep 2
+              done
+              echo "DB 연결 확인 완료!"
+
+              echo "===== 2단계: 미적용 마이그레이션 확인 ====="
+              if python manage.py migrate --check; then
+                echo "적용할 마이그레이션 없음. 백업/migrate 스킵."
+                exit 0
+              fi
+
+              echo "===== 3단계: 기존 데이터 백업 (dumpdata) ====="
+              TS=$(date +%Y%m%d-%H%M%S)
+              python manage.py dumpdata \
+                --natural-foreign --natural-primary \
+                --exclude contenttypes --exclude auth.permission \
+                --exclude sessions --exclude admin.logentry \
+                --indent 2 -o /backup/dump-$TS.json
+              echo "백업 완료: /backup/dump-$TS.json"
+
+              echo "===== 4단계: 마이그레이션 적용 ====="
+              python manage.py migrate --noinput
+              echo "마이그레이션 완료!"
+          env:
+            - name: DEBUG
+              value: "0"
+            - name: USE_SQLITE
+              value: "0"
+            - name: POSTGRES_HOST
+              value: compose-vote-db
+            - name: POSTGRES_PORT
+              value: "5432"
+            - name: POSTGRES_DB
+              value: {{ .Values.postgres.db }}
+            - name: POSTGRES_USER
+              value: {{ .Values.postgres.user }}
+            - name: POSTGRES_PASSWORD
+              value: {{ .Values.postgres.password }}
+          volumeMounts:
+            - name: backup-data
+              mountPath: /backup
+      volumes:
+        - name: backup-data
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-backup-pvc

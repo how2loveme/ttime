@@ -10,6 +10,10 @@ postgres:
   db: compose_vote
   storageSize: 1Gi
 
+# DB 백업(dumpdata) 파일 저장용 PVC
+backup:
+  storageSize: 1Gi
+
 # 관리자 계정 자동 생성 설정
 superuser:
   username: friday
