@@ -1,10 +1,20 @@
+# migrate hook Job이 사용하는 백업 PVC
+# - pre-upgrade hook(Job)보다 먼저 생성되어야 하므로 hook으로 선언
+#   (일반 리소스는 pre-upgrade hook 이후에 적용되어 Job이 영원히 Pending됨)
+# - lookup 가드: 이미 존재하면 렌더링하지 않아 재생성/충돌 방지
+{{- $backupPvc := printf "%s-backup-pvc" .Release.Name -}}
+{{- if not (lookup "v1" "PersistentVolumeClaim" .Release.Namespace $backupPvc) }}
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: {{ .Release.Name }}-backup-pvc
+  name: {{ $backupPvc }}
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-10"
 spec:
   accessModes:
     - ReadWriteOnce
   resources:
     requests:
       storage: {{ .Values.backup.storageSize }}
+{{- end }}

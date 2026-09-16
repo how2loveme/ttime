@@ -70,7 +70,7 @@ jobs:
           helm upgrade --install ttime \
             oci://harbor.softworksapp.cloud/ttime/compose-vote \
             --version "$CHART_VER" \
-            --set image.tag=${{ steps.vars.outputs.tag }} \
+            --set web.image=harbor.softworksapp.cloud/ttime/repository:${{ steps.vars.outputs.tag }} \
             -n vote-system
 
       - name: Health Check
