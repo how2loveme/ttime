@@ -82,6 +82,13 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 WHITENOISE_USE_FINDERS = True  # collectstatic 누락 파일도 dev 모드처럼 탐색
 
+# 해시된 정적 파일명(base.<hash>.css) → 배포마다 URL이 바뀌어
+# 브라우저/Cloudflare의 오래된 404·구버전 캐시 문제 방지
+STORAGES = {
+    'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+    'staticfiles': {'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage'},
+}
+
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # tls
