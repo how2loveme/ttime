@@ -29,6 +29,7 @@
   {% for shop in coffee_shops %}
   <div class="tab-pane fade {% if forloop.first %}show active{% endif %}" id="shop-{{ shop.id }}" role="tabpanel">
     {% for category in shop.categories.all %}
+    {% if category.items.all %}
     <div class="category-block">
       <h5 class="fw-bold mt-4">
         <span class="badge badge-cat">{{ category.name }}</span>
@@ -52,6 +53,7 @@
         {% endfor %}
       </div>
     </div>
+    {% endif %}
     {% empty %}
     <p class="text-muted">등록된 메뉴가 없습니다.</p>
     {% endfor %}

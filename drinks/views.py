@@ -18,7 +18,7 @@ def menu_list(request):
         models.Prefetch(
             'categories',
             queryset=Category.objects.prefetch_related(
-                models.Prefetch('items', queryset=MenuItem.objects.order_by('name'))
+                models.Prefetch('items', queryset=MenuItem.objects.filter(is_available=True).order_by('name'))
             )
         )
     )
@@ -44,7 +44,7 @@ def vote(request, session_id):
     ).prefetch_related(
         models.Prefetch(
             'items',
-            queryset=MenuItem.objects.filter(coffee_shop=session.coffee_shop)
+            queryset=MenuItem.objects.filter(coffee_shop=session.coffee_shop, is_available=True)
         )
     ).filter(items__isnull=False).distinct())
 

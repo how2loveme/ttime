@@ -4,12 +4,14 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
+python-dotenv = "*"
 django = "<5.0,>=4.2"
 requests = "==2.31.0"
 beautifulsoup4 = "==4.12.2"
 lxml = "==4.9.3"
 gunicorn = "==21.2.0"
-python-dotenv = "*"
+whitenoise = "==6.8.2"
+psycopg2-binary = "==2.9.9"
 
 [dev-packages]
 
